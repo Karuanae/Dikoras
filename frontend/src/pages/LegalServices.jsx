@@ -1,202 +1,532 @@
-import React from 'react';
-import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
+import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Search, Filter, Building2, Users, Shield, Home, Clock, Briefcase, FileText, Scale, Heart, DollarSign, Globe, Car, Gavel, Award, AlertTriangle, TreePine, Zap, UserCheck, Landmark } from 'lucide-react';
+
+const Footer = () => (
+  <footer className="bg-gray-900 text-white py-8">
+    <div className="max-w-6xl mx-auto px-4 text-center">
+      <p>&copy; 2025 Dikoras Legal Services. All rights reserved.</p>
+    </div>
+  </footer>
+);
 
 const services = [
-	{
-		title: 'Business Law',
-		description:
-			'Contracts, Incorporation, Compliance, Mergers & Acquisitions, Intellectual Property.',
-		icon: (
-			<svg
-				className="h-8 w-8 text-white"
-				xmlns="http://www.w3.org/2000/svg"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					strokeLinecap="round"
-					strokeLinejoin="round"
-					strokeWidth="2"
-					d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-2m2-0H9m2 0v-4a1 1 0 00-1-1h-1a1 1 0 00-1 1v4h4v-2a1 1 0 011-1h2a1 1 0 011 1v2h4z"
-				/>
-			</svg>
-		),
-	},
-	{
-		title: 'Family Law',
-		description:
-			'Divorce, Custody, Adoption, Child Support, Domestic Violence.',
-		icon: (
-			<svg
-				className="h-8 w-8 text-white"
-				xmlns="http://www.w3.org/2000/svg"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					strokeLinecap="round"
-					strokeLinejoin="round"
-					strokeWidth="2"
-					d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-				/>
-			</svg>
-		),
-	},
-	{
-		title: 'Criminal Defense',
-		description:
-			'DUI, Theft, Assault, Drug Crimes, White Collar Crimes.',
-		icon: (
-			<svg
-				className="h-8 w-8 text-white"
-				xmlns="http://www.w3.org/2000/svg"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					strokeLinecap="round"
-					strokeLinejoin="round"
-					strokeWidth="2"
-					d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-				/>
-			</svg>
-		),
-	},
-	{
-		title: 'Real Estate',
-		description:
-			'Transactions, Disputes, Landlord-Tenant, Zoning, Foreclosure.',
-		icon: (
-			<svg
-				className="h-8 w-8 text-white"
-				xmlns="http://www.w3.org/2000/svg"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					strokeLinecap="round"
-					strokeLinejoin="round"
-					strokeWidth="2"
-					d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-				/>
-			</svg>
-		),
-	},
-	{
-		title: 'Immigration',
-		description:
-			'Visas, Green Cards, Citizenship, Deportation Defense, Asylum.',
-		icon: (
-			<svg
-				className="h-8 w-8 text-white"
-				xmlns="http://www.w3.org/2000/svg"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					strokeLinecap="round"
-					strokeLinejoin="round"
-					strokeWidth="2"
-					d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-				/>
-			</svg>
-		),
-	},
-	{
-		title: 'Personal Injury',
-		description:
-			'Accidents, Medical Malpractice, Workers Comp, Product Liability.',
-		icon: (
-			<svg
-				className="h-8 w-8 text-white"
-				xmlns="http://www.w3.org/2000/svg"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					strokeLinecap="round"
-					strokeLinejoin="round"
-					strokeWidth="2"
-					d="M13 10V3L4 14h7v7l9-11h-7z"
-				/>
-			</svg>
-		),
-	},
+  // Legal Research
+  {
+    title: 'Legal Research & Analysis',
+    description: 'Case law summaries, precedent comparisons, regulatory research, jurisdictional analysis, and AI-assisted legal summaries.',
+    category: 'Research',
+    icon: <Search className="h-8 w-8 text-white" />,
+    pricing: 'From $150/hour',
+    deliveryTime: '2-5 business days'
+  },
+  
+  // Legal Documents & Review
+  {
+    title: 'Employment Contracts & HR Policies',
+    description: 'Employment agreements, ESOPs, HR policy development, non-compete clauses, and workplace compliance documents.',
+    category: 'Employment',
+    icon: <Users className="h-8 w-8 text-white" />,
+    pricing: 'From $300',
+    deliveryTime: '3-7 business days'
+  },
+  {
+    title: 'Terms of Service & Privacy Policies',
+    description: 'Website terms, privacy policies, refund policies, cookie policies, and GDPR compliance documentation.',
+    category: 'Business',
+    icon: <FileText className="h-8 w-8 text-white" />,
+    pricing: 'From $400',
+    deliveryTime: '2-4 business days'
+  },
+  {
+    title: 'Legal Opinions & Affidavits',
+    description: 'Professional legal opinions, affidavits, disclaimers, DMCA claims, and expert legal documentation.',
+    category: 'Litigation',
+    icon: <Scale className="h-8 w-8 text-white" />,
+    pricing: 'From $250',
+    deliveryTime: '1-3 business days'
+  },
+  {
+    title: 'Demand Letters & Legal Notices',
+    description: 'Professionally drafted demand letters, cease and desist notices, legal warnings, and debt collection letters.',
+    category: 'Litigation',
+    icon: <AlertTriangle className="h-8 w-8 text-white" />,
+    pricing: 'From $200',
+    deliveryTime: '1-2 business days'
+  },
+  
+  // General Legal Advice Categories
+  {
+    title: 'Business & Corporate Law',
+    description: 'Business formation, corporate governance, compliance, commercial transactions, and corporate restructuring.',
+    category: 'Business',
+    icon: <Building2 className="h-8 w-8 text-white" />,
+    pricing: 'From $200/hour',
+    deliveryTime: 'Same day consultation'
+  },
+  {
+    title: 'Immigration Law',
+    description: 'Visas, green cards, citizenship applications, deportation defense, asylum cases, and family reunification.',
+    category: 'Immigration',
+    icon: <Globe className="h-8 w-8 text-white" />,
+    pricing: 'From $500',
+    deliveryTime: '1-2 weeks'
+  },
+  {
+    title: 'Family Law Services',
+    description: 'Divorce proceedings, child custody, adoption, child support, spousal support, and domestic relations.',
+    category: 'Family',
+    icon: <Heart className="h-8 w-8 text-white" />,
+    pricing: 'From $250/hour',
+    deliveryTime: 'Same day consultation'
+  },
+  {
+    title: 'Intellectual Property',
+    description: 'Patent applications, trademark registration, copyright protection, IP litigation, and licensing agreements.',
+    category: 'IP',
+    icon: <Award className="h-8 w-8 text-white" />,
+    pricing: 'From $350',
+    deliveryTime: '1-3 weeks'
+  },
+  {
+    title: 'Tax Law',
+    description: 'Tax planning, IRS disputes, tax compliance, business tax strategy, and tax controversy resolution.',
+    category: 'Tax',
+    icon: <DollarSign className="h-8 w-8 text-white" />,
+    pricing: 'From $200/hour',
+    deliveryTime: '2-5 business days'
+  },
+  {
+    title: 'Labor & Employment Law',
+    description: 'Workplace disputes, discrimination claims, wage and hour issues, wrongful termination, and labor relations.',
+    category: 'Employment',
+    icon: <Briefcase className="h-8 w-8 text-white" />,
+    pricing: 'From $250/hour',
+    deliveryTime: 'Same day consultation'
+  },
+  
+  // Dispute Resolution
+  {
+    title: 'Settlement Agreements',
+    description: 'Comprehensive settlement agreement drafting, negotiation support, and dispute resolution documentation.',
+    category: 'Litigation',
+    icon: <Gavel className="h-8 w-8 text-white" />,
+    pricing: 'From $300',
+    deliveryTime: '2-4 business days'
+  },
+  {
+    title: 'Mediation & Arbitration',
+    description: 'Alternative dispute resolution services, mediation support, arbitration representation, and conflict resolution.',
+    category: 'Litigation',
+    icon: <UserCheck className="h-8 w-8 text-white" />,
+    pricing: 'From $200/hour',
+    deliveryTime: '1-2 weeks'
+  },
+  
+  // Business Contracts
+  {
+    title: 'NDAs & Confidentiality Agreements',
+    description: 'Non-disclosure agreements, confidentiality contracts, trade secret protection, and privacy agreements.',
+    category: 'Business',
+    icon: <Shield className="h-8 w-8 text-white" />,
+    pricing: 'From $200',
+    deliveryTime: '1-2 business days'
+  },
+  {
+    title: 'Partnership & Service Agreements',
+    description: 'Business partnerships, service contracts, vendor agreements, and commercial relationship documentation.',
+    category: 'Business',
+    icon: <Building2 className="h-8 w-8 text-white" />,
+    pricing: 'From $400',
+    deliveryTime: '3-5 business days'
+  },
+  {
+    title: 'Share Purchase & Stock Options',
+    description: 'Equity transactions, stock option plans, founders agreements, investment contracts, and corporate financing.',
+    category: 'Business',
+    icon: <DollarSign className="h-8 w-8 text-white" />,
+    pricing: 'From $500',
+    deliveryTime: '1-2 weeks'
+  },
+  
+  // Alternative Services
+  {
+    title: 'LLC Formation',
+    description: 'Business entity formation, state filings, operating agreements, and corporate structure setup.',
+    category: 'Business',
+    icon: <Landmark className="h-8 w-8 text-white" />,
+    pricing: 'Flat fee $299',
+    deliveryTime: '3-5 business days'
+  },
+  {
+    title: 'Will & Estate Planning',
+    description: 'Last will and testament, estate planning, trusts, probate assistance, and succession planning.',
+    category: 'Estate',
+    icon: <FileText className="h-8 w-8 text-white" />,
+    pricing: 'From $250',
+    deliveryTime: '1-2 weeks'
+  },
+  {
+    title: 'Document Review Services',
+    description: 'Contract review, legal document analysis, risk assessment, and compliance checking.',
+    category: 'Review',
+    icon: <FileText className="h-8 w-8 text-white" />,
+    pricing: 'From $100/hour',
+    deliveryTime: '1-3 business days'
+  },
+  
+  // Litigation Support
+  {
+    title: 'Court Filing & Motions',
+    description: 'Legal motion drafting, complaint preparation, court filings, and procedural document creation.',
+    category: 'Litigation',
+    icon: <Gavel className="h-8 w-8 text-white" />,
+    pricing: 'From $300',
+    deliveryTime: '2-5 business days'
+  },
+  {
+    title: 'Discovery Support',
+    description: 'Discovery management, evidence organization, deposition preparation, and litigation support services.',
+    category: 'Litigation',
+    icon: <Search className="h-8 w-8 text-white" />,
+    pricing: 'From $150/hour',
+    deliveryTime: '1-2 weeks'
+  },
+  
+  // Real Estate
+  {
+    title: 'Real Estate Transactions',
+    description: 'Property purchases, sales, lease agreements, title reviews, and real estate contract negotiations.',
+    category: 'Real Estate',
+    icon: <Home className="h-8 w-8 text-white" />,
+    pricing: 'From $400',
+    deliveryTime: '1-2 weeks'
+  },
+  {
+    title: 'Landlord-Tenant Law',
+    description: 'Rental agreements, eviction proceedings, tenant rights, property management legal support, and housing disputes.',
+    category: 'Real Estate',
+    icon: <Home className="h-8 w-8 text-white" />,
+    pricing: 'From $200/hour',
+    deliveryTime: '2-7 business days'
+  },
+  
+  // Personal Injury
+  {
+    title: 'Auto Accident Claims',
+    description: 'Car accident representation, insurance claims, personal injury litigation, and accident reconstruction analysis.',
+    category: 'Personal Injury',
+    icon: <Car className="h-8 w-8 text-white" />,
+    pricing: 'Contingency fee',
+    deliveryTime: 'Immediate consultation'
+  },
+  {
+    title: 'Medical Malpractice',
+    description: 'Medical negligence cases, hospital liability, pharmaceutical litigation, and healthcare professional misconduct.',
+    category: 'Personal Injury',
+    icon: <Heart className="h-8 w-8 text-white" />,
+    pricing: 'Contingency fee',
+    deliveryTime: 'Immediate consultation'
+  },
+  
+  // Additional comprehensive services
+  {
+    title: 'Environmental Law',
+    description: 'Environmental compliance, pollution cases, natural resource law, and environmental impact assessments.',
+    category: 'Environmental',
+    icon: <TreePine className="h-8 w-8 text-white" />,
+    pricing: 'From $250/hour',
+    deliveryTime: '1-2 weeks'
+  },
+  {
+    title: 'Energy Law',
+    description: 'Renewable energy projects, utility law, oil and gas transactions, and energy regulatory compliance.',
+    category: 'Energy',
+    icon: <Zap className="h-8 w-8 text-white" />,
+    pricing: 'From $300/hour',
+    deliveryTime: '1-3 weeks'
+  },
 ];
 
-const LegalServices = () => (
-	<>
-		<Navbar />
-		<div className="min-h-screen bg-gradient-to-br from-blue-200 via-blue-100 to-blue-300 py-12 px-4 mt-16 backdrop-blur-lg">
-			<div className="max-w-4xl mx-auto text-center bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg border border-blue-100 p-8">
-			<h1 className="text-4xl font-extrabold bg-gradient-to-r from-blue-700 via-blue-400 to-blue-700 bg-clip-text text-transparent mb-4 drop-shadow-lg">
-					Our Legal Services
-				</h1>
-			<p className="max-w-2xl mx-auto text-lg text-blue-700 mb-8">
-					Dikoras offers comprehensive legal support across all major practice
-					areas. Whether you are a business owner, individual, or family, our
-					network of lawyers is ready to help.
-				</p>
-			</div>
-			<div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-				{services.map((service) => (
-								<div
-									key={service.title}
-									className="bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl shadow-lg border border-blue-200 p-8 flex flex-col items-center"
-								>
-									<span className="inline-flex items-center justify-center p-4 bg-gradient-to-r from-blue-500 to-blue-400 rounded-xl shadow-xl mb-4">
-										{service.icon}
-									</span>
-									<h2 className="text-xl font-bold bg-gradient-to-r from-blue-700 via-blue-400 to-blue-700 bg-clip-text text-transparent mb-2 drop-shadow-lg">
-										{service.title}
-									</h2>
-									<p className="text-blue-700 text-center">
-										{service.description}
-									</p>
-									<a
-										href="#"
-										className="mt-4 font-medium text-blue-600 hover:text-blue-500 transition-all duration-200 hover:underline"
-									>
-										View details
-									</a>
-								</div>
-				))}
-			</div>
-					<div className="max-w-3xl mx-auto mt-12 text-center bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg border border-blue-100 p-8">
-						<h3 className="text-xl font-bold bg-gradient-to-r from-blue-700 via-blue-400 to-blue-700 bg-clip-text text-transparent mb-2 drop-shadow-lg">
-							Why Choose Dikoras?
-						</h3>
-						<ul className="list-disc list-inside text-blue-700 text-lg space-y-2">
-							<li>Verified lawyers with expertise in your area of need.</li>
-							<li>Transparent pricing and clear communication.</li>
-							<li>Secure platform for collaboration and billing.</li>
-							<li>Support for both individuals and businesses.</li>
-						</ul>
-					</div>
-					<div className="max-w-2xl mx-auto mt-12 text-center bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg border border-blue-100 p-8">
-						<h3 className="text-lg font-semibold bg-gradient-to-r from-blue-700 via-blue-400 to-blue-700 bg-clip-text text-transparent mb-2 drop-shadow-lg">
-							Need legal help?
-						</h3>
-						<p className="text-blue-700 mb-4">
-							Sign up and get matched with the right lawyer for your case.
-						</p>
-						<a
-							href="/register"
-							className="inline-block px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-400 text-white font-bold rounded-xl shadow-lg hover:from-blue-700 hover:to-blue-500 transition-all duration-200"
-						>
-							Get Started
-						</a>
-					</div>
-		</div>
-		<Footer />
-	</>
-);
+const categories = ['All', 'Business', 'Family', 'Employment', 'Immigration', 'Litigation', 'Real Estate', 'Personal Injury', 'IP', 'Tax', 'Estate', 'Review', 'Environmental', 'Energy'];
+const sortOptions = ['Name (A-Z)', 'Name (Z-A)', 'Price (Low to High)', 'Price (High to Low)', 'Delivery Time'];
+
+const LegalServices = () => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [sortBy, setSortBy] = useState('Name (A-Z)');
+  const [showFilters, setShowFilters] = useState(false);
+  const navigate = useNavigate();
+
+  const handleGetStarted = (service) => {
+    // Store the selected service in localStorage or pass as state
+    localStorage.setItem('selectedService', JSON.stringify(service));
+    
+    // Redirect to login/register with service info in state
+    navigate('/auth', { 
+      state: { 
+        redirectTo: '/client/dashboard',
+        service: service.title
+      } 
+    });
+  };
+
+  const filteredAndSortedServices = useMemo(() => {
+    let filtered = services.filter(service => {
+      const matchesSearch = service.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           service.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = selectedCategory === 'All' || service.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+
+    return filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'Name (A-Z)':
+          return a.title.localeCompare(b.title);
+        case 'Name (Z-A)':
+          return b.title.localeCompare(a.title);
+        case 'Price (Low to High)':
+          const priceA = a.pricing.match(/\$(\d+)/)?.[1] || '0';
+          const priceB = b.pricing.match(/\$(\d+)/)?.[1] || '0';
+          return parseInt(priceA) - parseInt(priceB);
+        case 'Price (High to Low)':
+          const priceA2 = a.pricing.match(/\$(\d+)/)?.[1] || '0';
+          const priceB2 = b.pricing.match(/\$(\d+)/)?.[1] || '0';
+          return parseInt(priceB2) - parseInt(priceA2);
+        case 'Delivery Time':
+          return a.deliveryTime.localeCompare(b.deliveryTime);
+        default:
+          return 0;
+      }
+    });
+  }, [searchTerm, selectedCategory, sortBy]);
+
+  return (
+    <>
+<div className="min-h-screen bg-gradient-to-br from-blue-200 via-blue-100 to-blue-300 py-12 px-4 mt-16 backdrop-blur-lg">        {/* Header Section */}
+        <div className="max-w-6xl mx-auto text-center mb-12">
+          <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-xl border border-blue-100 p-8 mb-8">
+            <h1 className="text-4xl font-extrabold bg-gradient-to-r from-blue-700 via-blue-400 to-blue-700 bg-clip-text text-transparent mb-4 drop-shadow-lg">
+               LEGAL SERVICES
+            </h1>
+            <p className="max-w-3xl mx-auto text-lg text-gray-700 leading-relaxed">
+              Dikoras provides end-to-end legal solutions across all major practice areas. From business formation to complex litigation, 
+              our network of expert attorneys delivers results with transparency and excellence.
+            </p>
+          </div>
+
+          {/* Search and Filter Section */}
+          <div className="bg-white/90 backdrop-blur-lg rounded-xl shadow-lg border border-blue-100 p-6 mb-8">
+            <div className="flex flex-col md:flex-row gap-4 items-center">
+              {/* Search Bar */}
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <input
+                  type="text"
+                  placeholder="Search legal services..."
+                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+
+              {/* Filter Toggle */}
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Filter className="h-5 w-5" />
+                Filters
+              </button>
+            </div>
+
+            {/* Filter Options */}
+            {showFilters && (
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Category Filter */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Category</label>
+                    <select
+                      value={selectedCategory}
+                      onChange={(e) => setSelectedCategory(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      {categories.map(category => (
+                        <option key={category} value={category}>{category}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Sort Options */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Sort By</label>
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      {sortOptions.map(option => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Active Filters Display */}
+                {(searchTerm || selectedCategory !== 'All') && (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {searchTerm && (
+                      <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm flex items-center gap-1">
+                        Search: "{searchTerm}"
+                        <button onClick={() => setSearchTerm('')} className="ml-1 text-blue-600 hover:text-blue-800">×</button>
+                      </span>
+                    )}
+                    {selectedCategory !== 'All' && (
+                      <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm flex items-center gap-1">
+                        Category: {selectedCategory}
+                        <button onClick={() => setSelectedCategory('All')} className="ml-1 text-purple-600 hover:text-purple-800">×</button>
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Results Count */}
+          <p className="text-gray-600 mb-6">
+            Showing {filteredAndSortedServices.length} of {services.length} services
+          </p>
+        </div>
+
+        {/* Services Grid */}
+        <div className="max-w-6xl mx-auto">
+          {filteredAndSortedServices.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="bg-white/80 backdrop-blur-lg rounded-xl shadow-lg border border-blue-100 p-8">
+                <Search className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-700 mb-2">No services found</h3>
+                <p className="text-gray-500">Try adjusting your search terms or filters</p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredAndSortedServices.map((service, index) => (
+                <div
+                  key={index}
+                  className="group bg-white/90 backdrop-blur-lg rounded-xl shadow-lg border border-blue-100 p-6 hover:shadow-xl hover:scale-105 transition-all duration-300 flex flex-col"
+                >
+                  <div className="flex items-center mb-4">
+                    <span className="inline-flex items-center justify-center p-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-lg group-hover:from-blue-700 group-hover:to-indigo-700 transition-all duration-300">
+                      {service.icon}
+                    </span>
+                    <span className="ml-3 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
+                      {service.category}
+                    </span>
+                  </div>
+
+                  <h3 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-3 group-hover:from-blue-700 group-hover:to-indigo-600 transition-all duration-300">
+                    {service.title}
+                  </h3>
+
+                  <p className="text-gray-700 mb-4 flex-grow leading-relaxed">
+                    {service.description}
+                  </p>
+
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center text-sm text-gray-600">
+                      <DollarSign className="h-4 w-4 mr-2 text-green-600" />
+                      <span className="font-medium">{service.pricing}</span>
+                    </div>
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Clock className="h-4 w-4 mr-2 text-blue-600" />
+                      <span>{service.deliveryTime}</span>
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={() => handleGetStarted(service)}
+                    className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 shadow-lg"
+                  >
+                    Get Started
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Why Choose Section */}
+        <div className="max-w-4xl mx-auto mt-16">
+          <div className="bg-white/90 backdrop-blur-lg rounded-2xl shadow-xl border border-blue-100 p-8">
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-700 via-indigo-600 to-purple-700 bg-clip-text text-transparent mb-6 text-center">
+              Why Choose Dikoras Legal Services?
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex items-start space-x-3">
+                <div className="flex-shrink-0 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                  <UserCheck className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-800">Verified Experts</h4>
+                  <p className="text-gray-600">Licensed attorneys with proven expertise in your specific area of need.</p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-3">
+                <div className="flex-shrink-0 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                  <DollarSign className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-800">Transparent Pricing</h4>
+                  <p className="text-gray-600">Clear, upfront pricing with no hidden fees or surprise charges.</p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-3">
+                <div className="flex-shrink-0 w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
+                  <Shield className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-800">Secure Platform</h4>
+                  <p className="text-gray-600">Bank-level security for all communications, documents, and billing.</p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-3">
+                <div className="flex-shrink-0 w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center">
+                  <Clock className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-800">Fast Turnaround</h4>
+                  <p className="text-gray-600">Efficient service delivery with clear timelines and regular updates.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* CTA Section */}
+        <div className="max-w-3xl mx-auto mt-12 text-center">
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-xl p-8 text-white">
+            <h3 className="text-2xl font-bold mb-4">
+              Ready to Get Expert Legal Help?
+            </h3>
+            <p className="text-blue-100 mb-6 text-lg">
+              Connect with qualified attorneys who understand your needs. Get started with a free consultation today.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button className="px-8 py-3 bg-white text-blue-600 font-bold rounded-xl shadow-lg hover:bg-gray-50 transition-all duration-300 transform hover:scale-105">
+                Free Consultation
+              </button>
+              <button className="px-8 py-3 bg-blue-700 text-white font-bold rounded-xl shadow-lg hover:bg-blue-800 transition-all duration-300 transform hover:scale-105 border-2 border-blue-400">
+                View Pricing
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <Footer />
+    </>
+  );
+};
 
 export default LegalServices;
