@@ -259,11 +259,11 @@ const LegalServices = () => {
   const navigate = useNavigate();
 
   const handleGetStarted = (service) => {
-    // Store the selected service in localStorage or pass as state
+    // Store the selected service in localStorage
     localStorage.setItem('selectedService', JSON.stringify(service));
     
-    // Redirect to login/register with service info in state
-    navigate('/auth', { 
+    // Redirect to login page
+    navigate('/login', { 
       state: { 
         redirectTo: '/client/dashboard',
         service: service.title
@@ -514,10 +514,16 @@ const LegalServices = () => {
               Connect with qualified attorneys who understand your needs. Get started with a free consultation today.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button className="px-8 py-3 bg-white text-blue-600 font-bold rounded-xl shadow-lg hover:bg-gray-50 transition-all duration-300 transform hover:scale-105">
+              <button 
+                onClick={() => navigate('/login')}
+                className="px-8 py-3 bg-white text-blue-600 font-bold rounded-xl shadow-lg hover:bg-gray-50 transition-all duration-300 transform hover:scale-105"
+              >
                 Free Consultation
               </button>
-              <button className="px-8 py-3 bg-blue-700 text-white font-bold rounded-xl shadow-lg hover:bg-blue-800 transition-all duration-300 transform hover:scale-105 border-2 border-blue-400">
+              <button 
+                onClick={() => navigate('/login')}
+                className="px-8 py-3 bg-blue-700 text-white font-bold rounded-xl shadow-lg hover:bg-blue-800 transition-all duration-300 transform hover:scale-105 border-2 border-blue-400"
+              >
                 View Pricing
               </button>
             </div>

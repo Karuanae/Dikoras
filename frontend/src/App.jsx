@@ -6,6 +6,7 @@ import Home from './pages/Home';
 import Navbar from './components/Navbar';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import LawyerRegistration from './pages/LawyerRegistration'; // Add this import
 import ClientDashboard from './pages/ClientDashboard';
 import ClientCases from './pages/ClientCases';
 import ClientMessages from './pages/ClientMessages';
@@ -24,8 +25,10 @@ import Unauthorized from './pages/Unauthorized';
 import NotFound from './pages/NotFound';
 import HowItWorks from './pages/HowItWorks';
 import LegalServices from './pages/LegalServices';
+import LawyersDirectory from './pages/LawyersDirectory';
 import ClientLayout from './components/ClientLayout';
 import LawyerLayout from './components/LawyerLayout';
+import PendingApproval from './pages/PendingApproval'; // You'll need to create this
 
 function App() {
   return (
@@ -38,9 +41,12 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/register-lawyer" element={<LawyerRegistration />} /> {/* Add this route */}
             <Route path="/unauthorized" element={<Unauthorized />} />
             <Route path="/how-it-works" element={<HowItWorks />} />
             <Route path="/legal-services" element={<LegalServices />} />
+            <Route path="/lawyers-directory" element={<LawyersDirectory />} />
+            <Route path="/pending-approval" element={<PendingApproval />} /> {/* Add this route */}
             
             {/* Protected Routes - Client Routes with Layout */}
             <Route path="/client" element={
@@ -58,7 +64,7 @@ function App() {
             
             {/* Protected Routes - Lawyer Routes with Layout */}
             <Route path="/lawyer" element={
-              <ProtectedRoute requiredRole="lawyer">
+              <ProtectedRoute requiredRole="lawyer" checkApproval={true}>
                 <LawyerLayout />
               </ProtectedRoute>
             }>
