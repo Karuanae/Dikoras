@@ -1,33 +1,24 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 from flask_jwt_extended import jwt_required, get_jwt_identity
-<<<<<<< HEAD
-
-client_bp = Blueprint('client', __name__)
-
-=======
-from functools import wraps  # Added this import
+from functools import wraps
 from models import (db, Case, LegalService, LawyerRequest, Notification, 
                    Transaction, Invoice, Document, ChatMessage)
 from datetime import datetime
 from werkzeug.utils import secure_filename
 import os
 
-# Create the blueprint FIRST
 client_bp = Blueprint('client', __name__)
 
 def client_required(f):
     """Decorator to ensure only clients can access these routes"""
-    @wraps(f)  # Added this line to preserve function names
+    @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated or current_user.user_type != 'client':
             flash('Access denied. Client account required.', 'error')
             return redirect(url_for('main.home'))
         return f(*args, **kwargs)
     return decorated_function
-
-# Now define the routes
->>>>>>> 04888cfa49bffd937f2adbf6312c75c0d979b7e0
 @client_bp.route('/api/client/cases', methods=['GET'])
 @jwt_required()
 def api_client_cases():
@@ -45,27 +36,6 @@ def api_client_cases():
         for c in cases
     ]
     return jsonify({'cases': cases_data}), 200
-<<<<<<< HEAD
-from models import (db, Case, LegalService, LawyerRequest, Notification, 
-                   Transaction, Invoice, Document, ChatMessage)
-from datetime import datetime
-from werkzeug.utils import secure_filename
-import os
-
-client_bp = Blueprint('client', __name__)
-
-import functools
-def client_required(f):
-    """Decorator to ensure only clients can access these routes"""
-    @functools.wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or current_user.user_type != 'client':
-            flash('Access denied. Client account required.', 'error')
-            return redirect(url_for('main.home'))
-        return f(*args, **kwargs)
-    return decorated_function
-=======
->>>>>>> 04888cfa49bffd937f2adbf6312c75c0d979b7e0
 
 @client_bp.route('/dashboard')
 @login_required
@@ -141,9 +111,9 @@ def update_profile():
             current_user.client_profile.company_name = data.get('company_name')
             current_user.client_profile.national_id = data.get('national_id')
 
-            # Update preferred services
+            # Update preferred services (many-to-many)
             preferred_services = data.get('preferred_services', [])
-            if preferred_services:
+            if isinstance(preferred_services, list):
                 services = LegalService.query.filter(LegalService.id.in_(preferred_services)).all()
                 current_user.client_profile.preferred_services = services
 
@@ -246,6 +216,7 @@ def create_case_post():
             title=data.get('title'),
             description=data.get('description'),
             priority=data.get('priority', 'medium'),
+            status='open',
             budget=float(data.get('budget')) if data.get('budget') else None,
             deadline=datetime.strptime(data.get('deadline'), '%Y-%m-%d') if data.get('deadline') else None
         )
@@ -454,6 +425,7 @@ def pay_invoice(invoice_id):
     
     try:
         # Create transaction
+        data = request.get_json()
         transaction = Transaction(
             case_id=invoice.case_id,
             client_id=current_user.id,
@@ -462,7 +434,7 @@ def pay_invoice(invoice_id):
             amount=invoice.total_amount,
             status='completed',  # In real app, this would be 'pending' until payment gateway confirms
             description=f'Payment for invoice {invoice.invoice_number}',
-            payment_method=request.get_json().get('payment_method'),
+            payment_method=data.get('payment_method'),
             completed_at=datetime.utcnow()
         )
         db.session.add(transaction)

@@ -19,9 +19,10 @@ def login():
 @auth_bp.route('/login', methods=['POST'])
 def login_post():
     """Handle login form submission"""
-    username = request.form.get('username')
-    password = request.form.get('password')
-    remember_me = bool(request.form.get('remember_me'))
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    remember_me = bool(data.get('remember_me'))
     
     if not username or not password:
         flash('Please enter both username and password.', 'error')
@@ -86,18 +87,19 @@ def register_client():
 @auth_bp.route('/register/client', methods=['POST'])
 def register_client_post():
     """Handle client registration"""
-    # Get form data
-    username = request.form.get('username')
-    email = request.form.get('email')
-    password = request.form.get('password')
-    confirm_password = request.form.get('confirm_password')
-    first_name = request.form.get('first_name')
-    last_name = request.form.get('last_name')
-    phone = request.form.get('phone')
-    address = request.form.get('address')
-    company_name = request.form.get('company_name')
-    national_id = request.form.get('national_id')
-    preferred_services = request.form.getlist('preferred_services')
+    # Get JSON data
+    data = request.get_json()
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
+    confirm_password = data.get('confirm_password')
+    first_name = data.get('first_name')
+    last_name = data.get('last_name')
+    phone = data.get('phone')
+    address = data.get('address')
+    company_name = data.get('company_name')
+    national_id = data.get('national_id')
+    preferred_services = data.get('preferred_services', [])
     
     # Validation
     if not all([username, email, password, first_name, last_name]):
@@ -182,20 +184,21 @@ def register_lawyer():
 @auth_bp.route('/register/lawyer', methods=['POST'])
 def register_lawyer_post():
     """Handle lawyer registration"""
-    # Get form data
-    username = request.form.get('username')
-    email = request.form.get('email')
-    password = request.form.get('password')
-    confirm_password = request.form.get('confirm_password')
-    first_name = request.form.get('first_name')
-    last_name = request.form.get('last_name')
-    phone = request.form.get('phone')
-    address = request.form.get('address')
-    license_number = request.form.get('license_number')
-    years_of_experience = request.form.get('years_of_experience')
-    education = request.form.get('education')
-    bar_association = request.form.get('bar_association')
-    specializations = request.form.getlist('specializations')
+    # Get JSON data
+    data = request.get_json()
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
+    confirm_password = data.get('confirm_password')
+    first_name = data.get('first_name')
+    last_name = data.get('last_name')
+    phone = data.get('phone')
+    address = data.get('address')
+    license_number = data.get('license_number')
+    years_of_experience = data.get('years_of_experience')
+    education = data.get('education')
+    bar_association = data.get('bar_association')
+    specializations = data.get('specializations', [])
     hourly_rate = request.form.get('hourly_rate')
     bio = request.form.get('bio')
     certifications = request.form.get('certifications')

@@ -2,28 +2,22 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required, current_user
 from models import (db, Case, LegalService, LawyerRequest, Notification, 
                    Transaction, Invoice, Document, ChatMessage)
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from decimal import Decimal
 from functools import wraps
 
 lawyer_bp = Blueprint('lawyer', __name__)
 
-import functools
+from functools import wraps
 def lawyer_required(f):
     """Decorator to ensure only approved lawyers can access these routes"""
-<<<<<<< HEAD
-    @functools.wraps(f)
-=======
     @wraps(f)
->>>>>>> 04888cfa49bffd937f2adbf6312c75c0d979b7e0
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated or current_user.user_type != 'lawyer':
             flash('Access denied. Lawyer account required.', 'error')
             return redirect(url_for('main.home'))
-        
         if current_user.lawyer_profile.approval_status != 'approved':
             return redirect(url_for('lawyer.pending_approval'))
-        
         return f(*args, **kwargs)
     return decorated_function
 
@@ -128,9 +122,9 @@ def update_profile():
         profile.bio = data.get('bio')
         profile.certifications = data.get('certifications')
 
-        # Update specializations
+        # Update specializations (many-to-many)
         specializations = data.get('specializations', [])
-        if specializations:
+        if isinstance(specializations, list):
             services = LegalService.query.filter(LegalService.id.in_(specializations)).all()
             profile.specializations = services
         
@@ -317,7 +311,8 @@ def update_case_status(case_id):
     """Update case status"""
     case = Case.query.filter_by(id=case_id, lawyer_id=current_user.id).first_or_404()
     
-    new_status = request.form.get('status')
+    data = request.get_json()
+    new_status = data.get('status')
     
     if new_status not in ['assigned', 'in_progress', 'resolved']:
         flash('Invalid status.', 'error')

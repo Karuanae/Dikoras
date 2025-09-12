@@ -104,7 +104,8 @@ def update_status(case_id):
         flash('Access denied.', 'error')
         return redirect(url_for('case.detail', case_id=case_id))
     
-    new_status = request.form.get('status')
+    data = request.get_json()
+    new_status = data.get('status')
     valid_statuses = ['open', 'assigned', 'in_progress', 'resolved', 'closed', 'cancelled']
     
     if new_status not in valid_statuses:

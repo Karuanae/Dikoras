@@ -73,11 +73,11 @@ def upload_post(case_id):
             document = Document(
                 case_id=case_id,
                 uploaded_by_id=current_user.id,
-                title=request.form.get('title'),
-                document_type=request.form.get('document_type'),
+                title=request.get_json().get('title'),
+                document_type=request.get_json().get('document_type'),
                 file_path=file_path,
-                description=request.form.get('description'),
-                is_confidential=bool(request.form.get('is_confidential'))
+                description=request.get_json().get('description'),
+                is_confidential=bool(request.get_json().get('is_confidential'))
             )
             
             db.session.add(document)

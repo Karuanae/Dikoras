@@ -11,11 +11,7 @@ admin_bp = Blueprint('admin', __name__)
 
 def admin_required(f):
     """Decorator to ensure only admins can access these routes"""
-<<<<<<< HEAD
-    @functools.wraps(f)
-=======
     @wraps(f)
->>>>>>> 04888cfa49bffd937f2adbf6312c75c0d979b7e0
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated or current_user.user_type != 'admin':
             flash('Access denied. Admin privileges required.', 'error')
@@ -219,10 +215,10 @@ def reject_lawyer(lawyer_id):
         flash('This lawyer has already been processed.', 'warning')
         return redirect(url_for('admin.lawyer_detail', lawyer_id=lawyer_id))
     
-    rejection_reason = request.form.get('rejection_reason')
+    data = request.get_json()
+    rejection_reason = data.get('rejection_reason')
     if not rejection_reason:
-        flash('Please provide a rejection reason.', 'error')
-        return redirect(url_for('admin.lawyer_detail', lawyer_id=lawyer_id))
+        return jsonify({'error': 'Please provide a rejection reason.'}), 400
     
     try:
         lawyer.approval_status = 'rejected'
@@ -414,7 +410,8 @@ def create_legal_service():
             service = LegalService(
                 name=data.get('name'),
                 description=data.get('description'),
-                icon=data.get('icon')
+                icon=data.get('icon'),
+                is_active=data.get('is_active', True)
             )
 
             db.session.add(service)
@@ -441,7 +438,7 @@ def edit_legal_service(service_id):
             service.name = data.get('name')
             service.description = data.get('description')
             service.icon = data.get('icon')
-            service.is_active = bool(data.get('is_active'))
+            service.is_active = bool(data.get('is_active', True))
             
             db.session.commit()
             flash('Legal service updated successfully!', 'success')
