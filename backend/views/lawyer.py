@@ -4,11 +4,13 @@ from models import (db, Case, LegalService, LawyerRequest, Notification,
                    Transaction, Invoice, Document, ChatMessage)
 from datetime import datetime, date
 from decimal import Decimal
+from functools import wraps
 
 lawyer_bp = Blueprint('lawyer', __name__)
 
 def lawyer_required(f):
     """Decorator to ensure only approved lawyers can access these routes"""
+    @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated or current_user.user_type != 'lawyer':
             flash('Access denied. Lawyer account required.', 'error')
@@ -382,7 +384,7 @@ def create_invoice_post(case_id):
         amount = Decimal(request.form.get('amount'))
         tax_amount = Decimal(request.form.get('tax_amount', '0'))
         due_days = int(request.form.get('due_days', '30'))
-        due_date = date.today() + datetime.timedelta(days=due_days)
+        due_date = date.today() + timedelta(days=due_days)
         
         invoice = Invoice(
             case_id=case_id,

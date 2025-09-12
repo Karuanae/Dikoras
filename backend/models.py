@@ -1,7 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from datetime import datetime, date
-from sqlalchemy import Numeric
 from werkzeug.security import generate_password_hash, check_password_hash
 import uuid
 import random
@@ -126,7 +125,7 @@ class LawyerProfile(db.Model):
     approved_by_id = db.Column(db.String(36), db.ForeignKey('user.id'))
     approved_at = db.Column(db.DateTime)
     rejection_reason = db.Column(db.Text)
-    hourly_rate = db.Column(db.Decimal(10, 2))
+    hourly_rate = db.Column(db.Numeric(10, 2))
     bio = db.Column(db.Text)
     
     # Relationships
@@ -164,7 +163,7 @@ class Case(db.Model):
     description = db.Column(db.Text, nullable=False)
     priority = db.Column(db.Enum(*[choice[0] for choice in PRIORITY_LEVELS], name='priority_levels'), default='medium')
     status = db.Column(db.Enum(*[choice[0] for choice in CASE_STATUS], name='case_status'), default='open')
-    budget = db.Column(db.Decimal(10, 2))
+    budget = db.Column(db.Numeric(10, 2))
     deadline = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -204,7 +203,7 @@ class LawyerRequest(db.Model):
     case_id = db.Column(db.String(36), db.ForeignKey('case.id'), nullable=False)
     lawyer_id = db.Column(db.String(36), db.ForeignKey('user.id'), nullable=False)
     message = db.Column(db.Text)
-    proposed_fee = db.Column(db.Decimal(10, 2))
+    proposed_fee = db.Column(db.Numeric(10, 2))
     status = db.Column(db.Enum(*[choice[0] for choice in REQUEST_STATUS], name='request_status'), default='pending')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     responded_at = db.Column(db.DateTime)
@@ -280,7 +279,7 @@ class Transaction(db.Model):
     client_id = db.Column(db.String(36), db.ForeignKey('user.id'), nullable=False)
     lawyer_id = db.Column(db.String(36), db.ForeignKey('user.id'), nullable=False)
     transaction_type = db.Column(db.Enum(*[choice[0] for choice in TRANSACTION_TYPES], name='transaction_types'), nullable=False)
-    amount = db.Column(db.Decimal(10, 2), nullable=False)
+    amount = db.Column(db.Numeric(10, 2), nullable=False)
     status = db.Column(db.Enum(*[choice[0] for choice in TRANSACTION_STATUS], name='transaction_status'), default='pending')
     description = db.Column(db.Text)
     payment_method = db.Column(db.String(50))
@@ -319,9 +318,9 @@ class Invoice(db.Model):
     case_id = db.Column(db.String(36), db.ForeignKey('case.id'), nullable=False)
     client_id = db.Column(db.String(36), db.ForeignKey('user.id'), nullable=False)
     lawyer_id = db.Column(db.String(36), db.ForeignKey('user.id'), nullable=False)
-    amount = db.Column(db.Decimal(10, 2), nullable=False)
-    tax_amount = db.Column(db.Decimal(10, 2), default=0)
-    total_amount = db.Column(db.Decimal(10, 2), nullable=False)
+    amount = db.Column(db.Numeric(10, 2), nullable=False)
+    tax_amount = db.Column(db.Numeric(10, 2), default=0)
+    total_amount = db.Column(db.Numeric(10, 2), nullable=False)
     description = db.Column(db.Text, nullable=False)
     status = db.Column(db.Enum(*[choice[0] for choice in INVOICE_STATUS], name='invoice_status'), default='draft')
     issue_date = db.Column(db.Date, default=date.today)

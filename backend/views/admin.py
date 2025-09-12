@@ -4,11 +4,13 @@ from models import (db, User, LawyerProfile, Case, LegalService, Transaction,
                    Invoice, Document, Notification, ActivityLog, SystemSettings)
 from datetime import datetime, timedelta
 from sqlalchemy import func, desc
+from functools import wraps
 
 admin_bp = Blueprint('admin', __name__)
 
 def admin_required(f):
     """Decorator to ensure only admins can access these routes"""
+    @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated or current_user.user_type != 'admin':
             flash('Access denied. Admin privileges required.', 'error')

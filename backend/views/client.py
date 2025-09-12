@@ -1,6 +1,27 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from functools import wraps  # Added this import
+from models import (db, Case, LegalService, LawyerRequest, Notification, 
+                   Transaction, Invoice, Document, ChatMessage)
+from datetime import datetime
+from werkzeug.utils import secure_filename
+import os
+
+# Create the blueprint FIRST
+client_bp = Blueprint('client', __name__)
+
+def client_required(f):
+    """Decorator to ensure only clients can access these routes"""
+    @wraps(f)  # Added this line to preserve function names
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or current_user.user_type != 'client':
+            flash('Access denied. Client account required.', 'error')
+            return redirect(url_for('main.home'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Now define the routes
 @client_bp.route('/api/client/cases', methods=['GET'])
 @jwt_required()
 def api_client_cases():
@@ -18,22 +39,6 @@ def api_client_cases():
         for c in cases
     ]
     return jsonify({'cases': cases_data}), 200
-from models import (db, Case, LegalService, LawyerRequest, Notification, 
-                   Transaction, Invoice, Document, ChatMessage)
-from datetime import datetime
-from werkzeug.utils import secure_filename
-import os
-
-client_bp = Blueprint('client', __name__)
-
-def client_required(f):
-    """Decorator to ensure only clients can access these routes"""
-    def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or current_user.user_type != 'client':
-            flash('Access denied. Client account required.', 'error')
-            return redirect(url_for('main.home'))
-        return f(*args, **kwargs)
-    return decorated_function
 
 @client_bp.route('/dashboard')
 @login_required
