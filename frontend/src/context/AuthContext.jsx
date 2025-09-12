@@ -59,6 +59,12 @@ export const AuthProvider = ({ children }) => {
     return !!user;
   };
 
+
+  // Check if user is admin
+  const isAdmin = () => {
+    return user?.role === 'admin';
+  };
+
   // Check if user is a lawyer (approved)
   const isLawyer = () => {
     return user?.role === 'lawyer' && user?.status !== 'pending' && !user?.isPending;
@@ -90,6 +96,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     isAuthenticated,
     isAuthenticatedIncludingPending,
+    isAdmin,
     isLawyer,
     isClient,
     isPendingLawyer,

@@ -1,5 +1,23 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
+from flask_jwt_extended import jwt_required, get_jwt_identity
+@client_bp.route('/api/client/cases', methods=['GET'])
+@jwt_required()
+def api_client_cases():
+    """API endpoint: Get all cases for authenticated client (JWT)"""
+    user_id = get_jwt_identity()
+    cases = Case.query.filter_by(client_id=user_id).order_by(Case.created_at.desc()).all()
+    cases_data = [
+        {
+            'id': c.id,
+            'title': c.title,
+            'status': c.status,
+            'created_at': c.created_at.isoformat(),
+            'service': c.legal_service.name if c.legal_service else None
+        }
+        for c in cases
+    ]
+    return jsonify({'cases': cases_data}), 200
 from models import (db, Case, LegalService, LawyerRequest, Notification, 
                    Transaction, Invoice, Document, ChatMessage)
 from datetime import datetime

@@ -28,7 +28,9 @@ import LegalServices from './pages/LegalServices';
 import LawyersDirectory from './pages/LawyersDirectory';
 import ClientLayout from './components/ClientLayout';
 import LawyerLayout from './components/LawyerLayout';
-import PendingApproval from './pages/PendingApproval'; // You'll need to create this
+
+import PendingApproval from './pages/PendingApproval';
+import AdminDashboard from './pages/AdminDashboard';
 
 function App() {
   return (
@@ -37,6 +39,12 @@ function App() {
         <div className="App min-h-screen bg-gray-50">
           <Navbar />
           <Routes>
+            {/* Admin Route */}
+            <Route path="/admin-dashboard" element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminDashboard />
+              </ProtectedRoute>
+            } />
             {/* Public Routes */}
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />

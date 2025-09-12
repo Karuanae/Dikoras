@@ -25,8 +25,19 @@ const Register = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
+  const [error, setError] = useState('');
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    setError('');
+    // Prevent admin registration by email or role
+    if (
+      formData.email.trim().toLowerCase() === 'admin@dikoras.com' ||
+      formData.role === 'admin'
+    ) {
+      setError('Admin registration is not allowed.');
+      return;
+    }
     // Simulate registration API response
     const userData = { email: formData.email, role: 'client' }; // Default to client role
     login(userData, 'fake-token');
@@ -59,6 +70,7 @@ const Register = () => {
           </div>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
+            {error && <div className="text-red-600 text-sm mb-2">{error}</div>}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">First name</label>

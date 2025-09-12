@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { MapPin, Briefcase, Award, GraduationCap, Clock, DollarSign } from 'lucide-react';
+import { MapPin, Briefcase, Award, GraduationCap, Clock, DollarSign, Camera, User } from 'lucide-react';
 
 const LawyerRegistration = () => {
   const [formData, setFormData] = useState({
@@ -31,12 +31,16 @@ const LawyerRegistration = () => {
     // Credentials
     password: '',
     confirmPassword: '',
-    agreeToTerms: false
+    agreeToTerms: false,
+    
+    // Profile Image
+    profileImage: null
   });
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [imagePreview, setImagePreview] = useState(null);
 
   const specializations = [
     'Business', 'Corporate', 'Immigration', 'IP', 'Technology', 
@@ -52,6 +56,23 @@ const LawyerRegistration = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setFormData(prev => ({
+        ...prev,
+        profileImage: file
+      }));
+      
+      // Create a preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleCategoryChange = (category) => {
@@ -87,8 +108,13 @@ const LawyerRegistration = () => {
         role: 'lawyer',
         status: 'pending', // Awaiting admin approval
         rating: 0,
-        reviews: 0
+        reviews: 0,
+        // Convert image to base64 for storage (in a real app, you'd upload to cloud storage)
+        profileImage: imagePreview || null
       };
+
+      // Remove the actual file object before storing
+      delete lawyerData.profileImageFile;
 
       // Store in localStorage (simulating backend storage)
       const pendingLawyers = JSON.parse(localStorage.getItem('pendingLawyers') || '[]');
@@ -96,13 +122,13 @@ const LawyerRegistration = () => {
       localStorage.setItem('pendingLawyers', JSON.stringify(pendingLawyers));
 
       // Show success message
-      alert('Your application has been submitted for admin approval. You will receive an email once your account is verified.');
-      
-      // Redirect to login
-      navigate('/login', { 
-        state: { 
+      alert('Your application has been submitted for admin approval. You will be redirected to the Pending Approval page.');
+
+      // Redirect to pending approval page
+      navigate('/pending-approval', {
+        state: {
           message: 'Your lawyer application is pending admin approval. You will be notified once verified.'
-        } 
+        }
       });
 
     } catch (error) {
@@ -130,6 +156,46 @@ const LawyerRegistration = () => {
           </div>
 
           <form className="space-y-6" onSubmit={handleSubmit}>
+            {/* Profile Image Upload */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <Camera className="h-5 w-5 mr-2 text-blue-600" />
+                Profile Photo
+              </h3>
+              <div className="flex flex-col items-center">
+                <div className="relative mb-4">
+                  {imagePreview ? (
+                    <img 
+                      src={imagePreview} 
+                      alt="Profile preview" 
+                      className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-md"
+                    />
+                  ) : (
+                    <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center border-4 border-white shadow-md">
+                      <User className="h-16 w-16 text-gray-400" />
+                    </div>
+                  )}
+                  <label 
+                    htmlFor="profileImage" 
+                    className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer shadow-md hover:bg-blue-700 transition-colors"
+                  >
+                    <Camera className="h-4 w-4" />
+                    <input
+                      id="profileImage"
+                      name="profileImage"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+                <p className="text-sm text-gray-600 text-center">
+                  Upload a professional headshot. Max file size: 5MB
+                </p>
+              </div>
+            </div>
+
             {/* Personal Information */}
             <div className="bg-gray-50 p-4 rounded-lg">
               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
@@ -366,7 +432,7 @@ const LawyerRegistration = () => {
                     />
                     <button
                       type="button"
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm text-gray-600"
                       onClick={() => setShowPassword(!showPassword)}
                     >
                       {showPassword ? 'Hide' : 'Show'}
@@ -387,7 +453,7 @@ const LawyerRegistration = () => {
                     />
                     <button
                       type="button"
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm text-gray-600"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     >
                       {showConfirmPassword ? 'Hide' : 'Show'}

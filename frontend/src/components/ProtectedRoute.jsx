@@ -1,9 +1,9 @@
-import React from 'react';
-import { Navigate } from 'react-router-dom';
+
 import { useAuth } from '../context/AuthContext';
+import { Navigate } from 'react-router-dom';
 
 const ProtectedRoute = ({ children, requiredRole, checkApproval = false }) => {
-  const { user, isAuthenticated, isLawyer, isClient, isPendingLawyer } = useAuth();
+  const { user, isAuthenticated, isLawyer, isClient, isPendingLawyer, isAdmin } = useAuth();
 
   if (!isAuthenticated()) {
     return <Navigate to="/login" replace />;
@@ -14,11 +14,17 @@ const ProtectedRoute = ({ children, requiredRole, checkApproval = false }) => {
     return <Navigate to="/pending-approval" replace />;
   }
 
-  // Check role-based access
+  // Admin route protection
+  if (requiredRole === 'admin' && !isAdmin()) {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  // Lawyer route protection
   if (requiredRole === 'lawyer' && !isLawyer()) {
     return <Navigate to="/unauthorized" replace />;
   }
 
+  // Client route protection
   if (requiredRole === 'client' && !isClient()) {
     return <Navigate to="/unauthorized" replace />;
   }

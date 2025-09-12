@@ -43,6 +43,16 @@ def create_app(config_name=None):
     migrate = Migrate(app, db)
     mail = Mail(app)
     csrf = CSRFProtect(app)
+    # Enable CORS for frontend-backend connection
+    from flask_cors import CORS
+    CORS(app, supports_credentials=True)
+
+    # JWT setup
+    from flask_jwt_extended import JWTManager
+    app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY') or 'super-secret-jwt-key-change-in-production'
+    app.config['JWT_TOKEN_LOCATION'] = ['headers', 'cookies']
+    app.config['JWT_COOKIE_SECURE'] = False  # Set True in production with HTTPS
+    jwt = JWTManager(app)
     
     # Login Manager setup
     login_manager = LoginManager()
