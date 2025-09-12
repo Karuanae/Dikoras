@@ -1,6 +1,9 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 from flask_jwt_extended import jwt_required, get_jwt_identity
+
+client_bp = Blueprint('client', __name__)
+
 @client_bp.route('/api/client/cases', methods=['GET'])
 @jwt_required()
 def api_client_cases():
@@ -26,8 +29,10 @@ import os
 
 client_bp = Blueprint('client', __name__)
 
+import functools
 def client_required(f):
     """Decorator to ensure only clients can access these routes"""
+    @functools.wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated or current_user.user_type != 'client':
             flash('Access denied. Client account required.', 'error')
@@ -96,32 +101,31 @@ def profile():
 def update_profile():
     """Update client profile"""
     try:
+        data = request.get_json()
         # Update user information
-        current_user.first_name = request.form.get('first_name')
-        current_user.last_name = request.form.get('last_name')
-        current_user.email = request.form.get('email')
-        current_user.phone = request.form.get('phone')
-        current_user.address = request.form.get('address')
-        
+        current_user.first_name = data.get('first_name')
+        current_user.last_name = data.get('last_name')
+        current_user.email = data.get('email')
+        current_user.phone = data.get('phone')
+        current_user.address = data.get('address')
+
         # Update client profile
         if current_user.client_profile:
-            current_user.client_profile.company_name = request.form.get('company_name')
-            current_user.client_profile.national_id = request.form.get('national_id')
-            
+            current_user.client_profile.company_name = data.get('company_name')
+            current_user.client_profile.national_id = data.get('national_id')
+
             # Update preferred services
-            preferred_services = request.form.getlist('preferred_services')
+            preferred_services = data.get('preferred_services', [])
             if preferred_services:
                 services = LegalService.query.filter(LegalService.id.in_(preferred_services)).all()
                 current_user.client_profile.preferred_services = services
-        
+
         db.session.commit()
-        flash('Profile updated successfully!', 'success')
-        
+        return jsonify({'message': 'Profile updated successfully!'}), 200
+
     except Exception as e:
         db.session.rollback()
-        flash('Error updating profile. Please try again.', 'error')
-    
-    return redirect(url_for('client.profile'))
+        return jsonify({'error': 'Error updating profile. Please try again.'}), 400
 
 @client_bp.route('/cases')
 @login_required
@@ -208,19 +212,20 @@ def create_case():
 def create_case_post():
     """Handle case creation"""
     try:
+        data = request.get_json()
         case = Case(
             client_id=current_user.id,
-            legal_service_id=request.form.get('legal_service_id'),
-            title=request.form.get('title'),
-            description=request.form.get('description'),
-            priority=request.form.get('priority', 'medium'),
-            budget=float(request.form.get('budget')) if request.form.get('budget') else None,
-            deadline=datetime.strptime(request.form.get('deadline'), '%Y-%m-%d') if request.form.get('deadline') else None
+            legal_service_id=data.get('legal_service_id'),
+            title=data.get('title'),
+            description=data.get('description'),
+            priority=data.get('priority', 'medium'),
+            budget=float(data.get('budget')) if data.get('budget') else None,
+            deadline=datetime.strptime(data.get('deadline'), '%Y-%m-%d') if data.get('deadline') else None
         )
-        
+
         db.session.add(case)
         db.session.commit()
-        
+
         # Create notification for admin
         notification = Notification(
             recipient_id=get_admin_user_id(),
@@ -231,9 +236,12 @@ def create_case_post():
         )
         db.session.add(notification)
         db.session.commit()
-        
-        flash('Case created successfully!', 'success')
-        return redirect(url_for('client.case_detail', case_id=case.id))
+
+        return jsonify({'message': 'Case created successfully!', 'case_id': case.id}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Error creating case. Please try again.'}), 400
         
     except Exception as e:
         db.session.rollback()
@@ -427,7 +435,7 @@ def pay_invoice(invoice_id):
             amount=invoice.total_amount,
             status='completed',  # In real app, this would be 'pending' until payment gateway confirms
             description=f'Payment for invoice {invoice.invoice_number}',
-            payment_method=request.form.get('payment_method'),
+            payment_method=request.get_json().get('payment_method'),
             completed_at=datetime.utcnow()
         )
         db.session.add(transaction)

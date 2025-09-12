@@ -89,10 +89,11 @@ def contact():
 @main_bp.route('/contact', methods=['POST'])
 def contact_submit():
     """Handle contact form submission"""
-    name = request.form.get('name')
-    email = request.form.get('email')
-    subject = request.form.get('subject')
-    message = request.form.get('message')
+    data = request.get_json()
+    name = data.get('name')
+    email = data.get('email')
+    subject = data.get('subject')
+    message = data.get('message')
     
     # Here you would typically send an email or save to database
     # For now, just return success response

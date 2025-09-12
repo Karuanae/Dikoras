@@ -7,8 +7,10 @@ from decimal import Decimal
 
 lawyer_bp = Blueprint('lawyer', __name__)
 
+import functools
 def lawyer_required(f):
     """Decorator to ensure only approved lawyers can access these routes"""
+    @functools.wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated or current_user.user_type != 'lawyer':
             flash('Access denied. Lawyer account required.', 'error')
@@ -104,24 +106,25 @@ def profile():
 def update_profile():
     """Update lawyer profile"""
     try:
+        data = request.get_json()
         # Update user information
-        current_user.first_name = request.form.get('first_name')
-        current_user.last_name = request.form.get('last_name')
-        current_user.email = request.form.get('email')
-        current_user.phone = request.form.get('phone')
-        current_user.address = request.form.get('address')
-        
+        current_user.first_name = data.get('first_name')
+        current_user.last_name = data.get('last_name')
+        current_user.email = data.get('email')
+        current_user.phone = data.get('phone')
+        current_user.address = data.get('address')
+
         # Update lawyer profile
         profile = current_user.lawyer_profile
-        profile.years_of_experience = int(request.form.get('years_of_experience'))
-        profile.education = request.form.get('education')
-        profile.bar_association = request.form.get('bar_association')
-        profile.hourly_rate = Decimal(request.form.get('hourly_rate')) if request.form.get('hourly_rate') else None
-        profile.bio = request.form.get('bio')
-        profile.certifications = request.form.get('certifications')
-        
+        profile.years_of_experience = int(data.get('years_of_experience')) if data.get('years_of_experience') else None
+        profile.education = data.get('education')
+        profile.bar_association = data.get('bar_association')
+        profile.hourly_rate = Decimal(data.get('hourly_rate')) if data.get('hourly_rate') else None
+        profile.bio = data.get('bio')
+        profile.certifications = data.get('certifications')
+
         # Update specializations
-        specializations = request.form.getlist('specializations')
+        specializations = data.get('specializations', [])
         if specializations:
             services = LegalService.query.filter(LegalService.id.in_(specializations)).all()
             profile.specializations = services
@@ -257,8 +260,8 @@ def request_case(case_id):
         lawyer_request = LawyerRequest(
             case_id=case_id,
             lawyer_id=current_user.id,
-            message=request.form.get('message'),
-            proposed_fee=Decimal(request.form.get('proposed_fee')) if request.form.get('proposed_fee') else None
+            message=request.get_json().get('message'),
+            proposed_fee=Decimal(request.get_json().get('proposed_fee')) if request.get_json().get('proposed_fee') else None
         )
         db.session.add(lawyer_request)
         

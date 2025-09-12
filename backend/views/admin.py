@@ -1,7 +1,8 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 from models import (db, User, LawyerProfile, Case, LegalService, Transaction, 
-                   Invoice, Document, Notification, ActivityLog, SystemSettings)
+                   Invoice, Document, Notification, ActivityLog, SystemSettings, LawyerRequest, ChatMessage)
+import functools
 from datetime import datetime, timedelta
 from sqlalchemy import func, desc
 
@@ -9,6 +10,7 @@ admin_bp = Blueprint('admin', __name__)
 
 def admin_required(f):
     """Decorator to ensure only admins can access these routes"""
+    @functools.wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated or current_user.user_type != 'admin':
             flash('Access denied. Admin privileges required.', 'error')
@@ -403,21 +405,21 @@ def create_legal_service():
     """Create new legal service"""
     if request.method == 'POST':
         try:
+            data = request.get_json()
             service = LegalService(
-                name=request.form.get('name'),
-                description=request.form.get('description'),
-                icon=request.form.get('icon')
+                name=data.get('name'),
+                description=data.get('description'),
+                icon=data.get('icon')
             )
-            
+
             db.session.add(service)
             db.session.commit()
-            
-            flash('Legal service created successfully!', 'success')
-            return redirect(url_for('admin.legal_services'))
-            
+
+            return jsonify({'message': 'Legal service created successfully!', 'service_id': service.id}), 201
+
         except Exception as e:
             db.session.rollback()
-            flash('Error creating service. Please try again.', 'error')
+            return jsonify({'error': 'Error creating service. Please try again.'}), 400
     
     return render_template('admin/create_legal_service.html')
 
@@ -430,10 +432,11 @@ def edit_legal_service(service_id):
     
     if request.method == 'POST':
         try:
-            service.name = request.form.get('name')
-            service.description = request.form.get('description')
-            service.icon = request.form.get('icon')
-            service.is_active = bool(request.form.get('is_active'))
+            data = request.get_json()
+            service.name = data.get('name')
+            service.description = data.get('description')
+            service.icon = data.get('icon')
+            service.is_active = bool(data.get('is_active'))
             
             db.session.commit()
             flash('Legal service updated successfully!', 'success')
@@ -461,17 +464,15 @@ def update_setting(setting_id):
     setting = SystemSettings.query.get_or_404(setting_id)
     
     try:
-        setting.value = request.form.get('value')
+        data = request.get_json()
+        setting.value = data.get('value')
         setting.updated_at = datetime.utcnow()
-        
+
         db.session.commit()
-        flash('Setting updated successfully!', 'success')
-        
+        return jsonify({'message': 'Setting updated successfully!'}), 200
     except Exception as e:
         db.session.rollback()
-        flash('Error updating setting. Please try again.', 'error')
-    
-    return redirect(url_for('admin.settings'))
+        return jsonify({'error': 'Error updating setting. Please try again.'}), 400
 
 @admin_bp.route('/activity-logs')
 @login_required

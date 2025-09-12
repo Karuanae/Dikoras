@@ -37,12 +37,12 @@ def create_post():
     try:
         case = Case(
             client_id=current_user.id,
-            legal_service_id=request.form.get('legal_service_id'),
-            title=request.form.get('title'),
-            description=request.form.get('description'),
-            priority=request.form.get('priority', 'medium'),
-            budget=float(request.form.get('budget')) if request.form.get('budget') else None,
-            deadline=datetime.strptime(request.form.get('deadline'), '%Y-%m-%d') if request.form.get('deadline') else None
+            legal_service_id=request.get_json().get('legal_service_id'),
+            title=request.get_json().get('title'),
+            description=request.get_json().get('description'),
+            priority=request.get_json().get('priority', 'medium'),
+            budget=float(request.get_json().get('budget')) if request.get_json().get('budget') else None,
+            deadline=datetime.strptime(request.get_json().get('deadline'), '%Y-%m-%d') if request.get_json().get('deadline') else None
         )
         
         db.session.add(case)
