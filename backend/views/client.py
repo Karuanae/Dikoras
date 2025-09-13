@@ -1,139 +1,152 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
-from flask_login import login_required, current_user
+from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from functools import wraps
 from models import (db, Case, LegalService, LawyerRequest, Notification, 
-                   Transaction, Invoice, Document, ChatMessage)
+                   Transaction, Invoice, Document, User)
 from datetime import datetime
-from werkzeug.utils import secure_filename
-import os
+from decimal import Decimal
 
-client_bp = Blueprint('client', __name__)
+client_bp = Blueprint("client_bp", __name__)
 
-def client_required(f):
-    """Decorator to ensure only clients can access these routes"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or current_user.user_type != 'client':
-            flash('Access denied. Client account required.', 'error')
-            return redirect(url_for('main.home'))
-        return f(*args, **kwargs)
-    return decorated_function
-@client_bp.route('/api/client/cases', methods=['GET'])
+# Get client dashboard stats
+@client_bp.route("/client/dashboard", methods=["GET"])
 @jwt_required()
-def api_client_cases():
-    """API endpoint: Get all cases for authenticated client (JWT)"""
-    user_id = get_jwt_identity()
-    cases = Case.query.filter_by(client_id=user_id).order_by(Case.created_at.desc()).all()
-    cases_data = [
-        {
-            'id': c.id,
-            'title': c.title,
-            'status': c.status,
-            'created_at': c.created_at.isoformat(),
-            'service': c.legal_service.name if c.legal_service else None
-        }
-        for c in cases
-    ]
-    return jsonify({'cases': cases_data}), 200
-
-@client_bp.route('/dashboard')
-@login_required
-@client_required
-def dashboard():
-    """Client dashboard"""
-    # Get client statistics
-    total_cases = Case.query.filter_by(client_id=current_user.id).count()
-    active_cases = Case.query.filter_by(
-        client_id=current_user.id
-    ).filter(Case.status.in_(['open', 'assigned', 'in_progress'])).count()
+def get_dashboard():
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
     
-    resolved_cases = Case.query.filter_by(
-        client_id=current_user.id, 
-        status='resolved'
+    if not user or user.user_type != 'client':
+        return jsonify({"error": "Client access required"}), 403
+    
+    # Get client statistics
+    total_cases = Case.query.filter_by(client_id=current_user_id).count()
+    active_cases = Case.query.filter_by(client_id=current_user_id).filter(
+        Case.status.in_(['open', 'assigned', 'in_progress'])
     ).count()
+    resolved_cases = Case.query.filter_by(client_id=current_user_id, status='resolved').count()
     
     # Get recent cases
-    recent_cases = Case.query.filter_by(
-        client_id=current_user.id
-    ).order_by(Case.created_at.desc()).limit(5).all()
+    recent_cases = Case.query.filter_by(client_id=current_user_id).order_by(
+        Case.created_at.desc()
+    ).limit(5).all()
     
     # Get recent notifications
-    recent_notifications = Notification.query.filter_by(
-        recipient_id=current_user.id
-    ).order_by(Notification.created_at.desc()).limit(5).all()
+    recent_notifications = Notification.query.filter_by(recipient_id=current_user_id).order_by(
+        Notification.created_at.desc()
+    ).limit(5).all()
     
     # Get pending lawyer requests
     pending_requests = LawyerRequest.query.join(Case).filter(
-        Case.client_id == current_user.id,
+        Case.client_id == current_user_id,
         LawyerRequest.status == 'pending'
     ).count()
     
     # Get total spent
     total_spent = db.session.query(db.func.sum(Transaction.amount)).filter(
-        Transaction.client_id == current_user.id,
+        Transaction.client_id == current_user_id,
         Transaction.status == 'completed'
     ).scalar() or 0
     
-    return render_template('client/dashboard.html',
-                         total_cases=total_cases,
-                         active_cases=active_cases,
-                         resolved_cases=resolved_cases,
-                         recent_cases=recent_cases,
-                         recent_notifications=recent_notifications,
-                         pending_requests=pending_requests,
-                         total_spent=total_spent)
+    dashboard_data = {
+        "stats": {
+            "total_cases": total_cases,
+            "active_cases": active_cases,
+            "resolved_cases": resolved_cases,
+            "pending_requests": pending_requests,
+            "total_spent": float(total_spent)
+        },
+        "recent_cases": [{
+            "id": case.id,
+            "case_number": case.case_number,
+            "title": case.title,
+            "status": case.status,
+            "created_at": case.created_at.isoformat(),
+            "legal_service": case.legal_service.name if case.legal_service else None
+        } for case in recent_cases],
+        "recent_notifications": [{
+            "id": notif.id,
+            "title": notif.title,
+            "message": notif.message,
+            "is_read": notif.is_read,
+            "created_at": notif.created_at.isoformat()
+        } for notif in recent_notifications]
+    }
+    
+    return jsonify(dashboard_data), 200
 
-@client_bp.route('/profile')
-@login_required
-@client_required
-def profile():
-    """Client profile page"""
+# Get client profile
+@client_bp.route("/client/profile", methods=["GET"])
+@jwt_required()
+def get_profile():
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    
+    if not user or user.user_type != 'client':
+        return jsonify({"error": "Client access required"}), 403
+    
+    # Get available legal services
     services = LegalService.query.filter_by(is_active=True).all()
-    return render_template('client/profile.html', services=services)
+    
+    profile_data = {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "phone": user.phone,
+        "address": user.address,
+        "created_at": user.created_at.isoformat(),
+        "available_services": [{
+            "id": service.id,
+            "name": service.name,
+            "description": service.description
+        } for service in services]
+    }
+    
+    return jsonify(profile_data), 200
 
-@client_bp.route('/profile', methods=['POST'])
-@login_required
-@client_required
+# Update client profile
+@client_bp.route("/client/profile", methods=["PATCH"])
+@jwt_required()
 def update_profile():
-    """Update client profile"""
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    
+    if not user or user.user_type != 'client':
+        return jsonify({"error": "Client access required"}), 403
+    
+    data = request.get_json()
+    
     try:
-        data = request.get_json()
         # Update user information
-        current_user.first_name = data.get('first_name')
-        current_user.last_name = data.get('last_name')
-        current_user.email = data.get('email')
-        current_user.phone = data.get('phone')
-        current_user.address = data.get('address')
-
-        # Update client profile
-        if current_user.client_profile:
-            current_user.client_profile.company_name = data.get('company_name')
-            current_user.client_profile.national_id = data.get('national_id')
-
-            # Update preferred services (many-to-many)
-            preferred_services = data.get('preferred_services', [])
-            if isinstance(preferred_services, list):
-                services = LegalService.query.filter(LegalService.id.in_(preferred_services)).all()
-                current_user.client_profile.preferred_services = services
-
+        user.first_name = data.get('first_name', user.first_name)
+        user.last_name = data.get('last_name', user.last_name)
+        user.email = data.get('email', user.email)
+        user.phone = data.get('phone', user.phone)
+        user.address = data.get('address', user.address)
+        
         db.session.commit()
-        return jsonify({'message': 'Profile updated successfully!'}), 200
-
+        return jsonify({"success": "Profile updated successfully"}), 200
+        
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': 'Error updating profile. Please try again.'}), 400
+        return jsonify({"error": "Failed to update profile"}), 400
 
-@client_bp.route('/cases')
-@login_required
-@client_required
-def cases():
-    """Client cases page"""
-    page = request.args.get('page', 1, type=int)
+# Get client cases
+@client_bp.route("/client/cases", methods=["GET"])
+@jwt_required()
+def get_client_cases():
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    
+    if not user or user.user_type != 'client':
+        return jsonify({"error": "Client access required"}), 403
+    
+    # Query parameters
     status_filter = request.args.get('status')
     service_filter = request.args.get('service')
+    limit = request.args.get('limit', type=int)
     
-    query = Case.query.filter_by(client_id=current_user.id)
+    query = Case.query.filter_by(client_id=current_user_id)
     
     if status_filter:
         query = query.filter_by(status=status_filter)
@@ -141,24 +154,42 @@ def cases():
     if service_filter:
         query = query.filter_by(legal_service_id=service_filter)
     
-    cases = query.order_by(Case.created_at.desc()).paginate(
-        page=page, per_page=10, error_out=False
-    )
+    query = query.order_by(Case.created_at.desc())
     
-    services = LegalService.query.filter_by(is_active=True).all()
+    if limit:
+        query = query.limit(limit)
     
-    return render_template('client/cases.html', 
-                         cases=cases, 
-                         services=services,
-                         current_status=status_filter,
-                         current_service=service_filter)
+    cases = query.all()
+    
+    cases_data = [{
+        "id": case.id,
+        "case_number": case.case_number,
+        "title": case.title,
+        "description": case.description,
+        "status": case.status,
+        "priority": case.priority,
+        "budget": float(case.budget) if case.budget else None,
+        "deadline": case.deadline.isoformat() if case.deadline else None,
+        "created_at": case.created_at.isoformat(),
+        "lawyer_name": case.lawyer.get_full_name() if case.lawyer else None,
+        "legal_service": case.legal_service.name if case.legal_service else None
+    } for case in cases]
+    
+    return jsonify(cases_data), 200
 
-@client_bp.route('/cases/<case_id>')
-@login_required
-@client_required
-def case_detail(case_id):
-    """View case details"""
-    case = Case.query.filter_by(id=case_id, client_id=current_user.id).first_or_404()
+# Get specific case details
+@client_bp.route("/client/cases/<case_id>", methods=["GET"])
+@jwt_required()
+def get_case_detail(case_id):
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    
+    if not user or user.user_type != 'client':
+        return jsonify({"error": "Client access required"}), 403
+    
+    case = Case.query.filter_by(id=case_id, client_id=current_user_id).first()
+    if not case:
+        return jsonify({"error": "Case not found"}), 404
     
     # Get lawyer requests for this case
     lawyer_requests = LawyerRequest.query.filter_by(case_id=case_id).order_by(
@@ -180,99 +211,80 @@ def case_detail(case_id):
         Invoice.issue_date.desc()
     ).all()
     
-    return render_template('client/case_detail.html',
-                         case=case,
-                         lawyer_requests=lawyer_requests,
-                         documents=documents,
-                         transactions=transactions,
-                         invoices=invoices)
-
-@client_bp.route('/cases/create')
-@login_required
-@client_required
-def create_case():
-    """Create new case form"""
-    service_id = request.args.get('service_id')
-    services = LegalService.query.filter_by(is_active=True).all()
-    selected_service = None
+    case_data = {
+        "id": case.id,
+        "case_number": case.case_number,
+        "title": case.title,
+        "description": case.description,
+        "status": case.status,
+        "priority": case.priority,
+        "budget": float(case.budget) if case.budget else None,
+        "deadline": case.deadline.isoformat() if case.deadline else None,
+        "created_at": case.created_at.isoformat(),
+        "updated_at": case.updated_at.isoformat(),
+        "assigned_at": case.assigned_at.isoformat() if case.assigned_at else None,
+        "resolved_at": case.resolved_at.isoformat() if case.resolved_at else None,
+        "lawyer": {
+            "id": case.lawyer.id,
+            "name": case.lawyer.get_full_name(),
+            "email": case.lawyer.email
+        } if case.lawyer else None,
+        "legal_service": {
+            "id": case.legal_service.id,
+            "name": case.legal_service.name
+        } if case.legal_service else None,
+        "lawyer_requests": [{
+            "id": req.id,
+            "lawyer_name": req.lawyer.get_full_name(),
+            "message": req.message,
+            "proposed_fee": float(req.proposed_fee) if req.proposed_fee else None,
+            "status": req.status,
+            "created_at": req.created_at.isoformat()
+        } for req in lawyer_requests],
+        "documents": [{
+            "id": doc.id,
+            "title": doc.title,
+            "document_type": doc.document_type,
+            "created_at": doc.created_at.isoformat(),
+            "uploaded_by": doc.uploaded_by.get_full_name()
+        } for doc in documents],
+        "transactions": [{
+            "id": txn.id,
+            "transaction_number": txn.transaction_number,
+            "transaction_type": txn.transaction_type,
+            "amount": float(txn.amount),
+            "status": txn.status,
+            "created_at": txn.created_at.isoformat()
+        } for txn in transactions],
+        "invoices": [{
+            "id": inv.id,
+            "invoice_number": inv.invoice_number,
+            "total_amount": float(inv.total_amount),
+            "status": inv.status,
+            "issue_date": inv.issue_date.isoformat(),
+            "due_date": inv.due_date.isoformat()
+        } for inv in invoices]
+    }
     
-    if service_id:
-        selected_service = LegalService.query.get(service_id)
-    
-    return render_template('client/create_case.html', 
-                         services=services, 
-                         selected_service=selected_service)
+    return jsonify(case_data), 200
 
-@client_bp.route('/cases/create', methods=['POST'])
-@login_required
-@client_required
-def create_case_post():
-    """Handle case creation"""
-    try:
-        data = request.get_json()
-        case = Case(
-            client_id=current_user.id,
-            legal_service_id=data.get('legal_service_id'),
-            title=data.get('title'),
-            description=data.get('description'),
-            priority=data.get('priority', 'medium'),
-            status='open',
-            budget=float(data.get('budget')) if data.get('budget') else None,
-            deadline=datetime.strptime(data.get('deadline'), '%Y-%m-%d') if data.get('deadline') else None
-        )
-
-        db.session.add(case)
-        db.session.commit()
-
-        # Create notification for admin
-        notification = Notification(
-            recipient_id=get_admin_user_id(),
-            notification_type='case_status_update',
-            title='New Case Created',
-            message=f'A new case "{case.title}" has been created by {current_user.get_full_name()}',
-            related_case_id=case.id
-        )
-        db.session.add(notification)
-        db.session.commit()
-
-        return jsonify({'message': 'Case created successfully!', 'case_id': case.id}), 201
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': 'Error creating case. Please try again.'}), 400
-        
-    except Exception as e:
-        db.session.rollback()
-        flash('Error creating case. Please try again.', 'error')
-        return redirect(url_for('client.create_case'))
-
-@client_bp.route('/lawyer-requests')
-@login_required
-@client_required
-def lawyer_requests():
-    """View pending lawyer requests"""
-    page = request.args.get('page', 1, type=int)
-    
-    requests = LawyerRequest.query.join(Case).filter(
-        Case.client_id == current_user.id,
-        LawyerRequest.status == 'pending'
-    ).order_by(LawyerRequest.created_at.desc()).paginate(
-        page=page, per_page=10, error_out=False
-    )
-    
-    return render_template('client/lawyer_requests.html', requests=requests)
-
-@client_bp.route('/lawyer-requests/<request_id>/accept', methods=['POST'])
-@login_required
-@client_required
+# Accept lawyer request
+@client_bp.route("/client/lawyer-requests/<request_id>/accept", methods=["POST"])
+@jwt_required()
 def accept_lawyer_request(request_id):
-    """Accept a lawyer request"""
-    lawyer_request = LawyerRequest.query.get_or_404(request_id)
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    
+    if not user or user.user_type != 'client':
+        return jsonify({"error": "Client access required"}), 403
+    
+    lawyer_request = LawyerRequest.query.get(request_id)
+    if not lawyer_request:
+        return jsonify({"error": "Lawyer request not found"}), 404
     
     # Verify this request belongs to client's case
-    if lawyer_request.case.client_id != current_user.id:
-        flash('Access denied.', 'error')
-        return redirect(url_for('client.lawyer_requests'))
+    if lawyer_request.case.client_id != current_user_id:
+        return jsonify({"error": "Access denied"}), 403
     
     try:
         # Accept the request
@@ -302,7 +314,7 @@ def accept_lawyer_request(request_id):
             recipient_id=lawyer_request.lawyer_id,
             notification_type='case_accepted',
             title='Case Request Accepted',
-            message=f'Your request for case "{case.title}" has been accepted by {current_user.get_full_name()}',
+            message=f'Your request for case "{case.title}" has been accepted by {user.get_full_name()}',
             related_case_id=case.id
         )
         db.session.add(notification)
@@ -319,25 +331,29 @@ def accept_lawyer_request(request_id):
             db.session.add(notification)
         
         db.session.commit()
-        flash('Lawyer request accepted successfully!', 'success')
+        return jsonify({"success": "Lawyer request accepted successfully"}), 200
         
     except Exception as e:
         db.session.rollback()
-        flash('Error accepting request. Please try again.', 'error')
-    
-    return redirect(url_for('client.case_detail', case_id=lawyer_request.case_id))
+        return jsonify({"error": "Failed to accept request"}), 400
 
-@client_bp.route('/lawyer-requests/<request_id>/reject', methods=['POST'])
-@login_required
-@client_required
+# Reject lawyer request
+@client_bp.route("/client/lawyer-requests/<request_id>/reject", methods=["POST"])
+@jwt_required()
 def reject_lawyer_request(request_id):
-    """Reject a lawyer request"""
-    lawyer_request = LawyerRequest.query.get_or_404(request_id)
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    
+    if not user or user.user_type != 'client':
+        return jsonify({"error": "Client access required"}), 403
+    
+    lawyer_request = LawyerRequest.query.get(request_id)
+    if not lawyer_request:
+        return jsonify({"error": "Lawyer request not found"}), 404
     
     # Verify this request belongs to client's case
-    if lawyer_request.case.client_id != current_user.id:
-        flash('Access denied.', 'error')
-        return redirect(url_for('client.lawyer_requests'))
+    if lawyer_request.case.client_id != current_user_id:
+        return jsonify({"error": "Access denied"}), 403
     
     try:
         lawyer_request.status = 'rejected'
@@ -354,213 +370,75 @@ def reject_lawyer_request(request_id):
         db.session.add(notification)
         
         db.session.commit()
-        flash('Lawyer request rejected.', 'info')
+        return jsonify({"success": "Lawyer request rejected"}), 200
         
     except Exception as e:
         db.session.rollback()
-        flash('Error rejecting request. Please try again.', 'error')
-    
-    return redirect(url_for('client.case_detail', case_id=lawyer_request.case_id))
+        return jsonify({"error": "Failed to reject request"}), 400
 
-@client_bp.route('/transactions')
-@login_required
-@client_required
-def transactions():
-    """View client transactions"""
-    page = request.args.get('page', 1, type=int)
-    status_filter = request.args.get('status')
+# Get pending lawyer requests
+@client_bp.route("/client/lawyer-requests", methods=["GET"])
+@jwt_required()
+def get_lawyer_requests():
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
     
-    query = Transaction.query.filter_by(client_id=current_user.id)
+    if not user or user.user_type != 'client':
+        return jsonify({"error": "Client access required"}), 403
     
-    if status_filter:
-        query = query.filter_by(status=status_filter)
+    requests = LawyerRequest.query.join(Case).filter(
+        Case.client_id == current_user_id,
+        LawyerRequest.status == 'pending'
+    ).order_by(LawyerRequest.created_at.desc()).all()
     
-    transactions = query.order_by(Transaction.created_at.desc()).paginate(
-        page=page, per_page=15, error_out=False
-    )
+    requests_data = [{
+        "id": req.id,
+        "case": {
+            "id": req.case.id,
+            "title": req.case.title,
+            "case_number": req.case.case_number
+        },
+        "lawyer": {
+            "id": req.lawyer.id,
+            "name": req.lawyer.get_full_name(),
+            "years_of_experience": req.lawyer.years_of_experience,
+            "hourly_rate": float(req.lawyer.hourly_rate) if req.lawyer.hourly_rate else None
+        },
+        "message": req.message,
+        "proposed_fee": float(req.proposed_fee) if req.proposed_fee else None,
+        "created_at": req.created_at.isoformat()
+    } for req in requests]
     
-    return render_template('client/transactions.html', 
-                         transactions=transactions,
-                         current_status=status_filter)
+    return jsonify(requests_data), 200
 
-@client_bp.route('/invoices')
-@login_required
-@client_required
-def invoices():
-    """View client invoices"""
-    page = request.args.get('page', 1, type=int)
-    status_filter = request.args.get('status')
+# Get client statistics
+@client_bp.route("/client/stats", methods=["GET"])
+@jwt_required()
+def get_client_stats():
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
     
-    query = Invoice.query.filter_by(client_id=current_user.id)
+    if not user or user.user_type != 'client':
+        return jsonify({"error": "Client access required"}), 403
     
-    if status_filter:
-        query = query.filter_by(status=status_filter)
-    
-    invoices = query.order_by(Invoice.issue_date.desc()).paginate(
-        page=page, per_page=15, error_out=False
-    )
-    
-    return render_template('client/invoices.html', 
-                         invoices=invoices,
-                         current_status=status_filter)
-
-@client_bp.route('/invoices/<invoice_id>')
-@login_required
-@client_required
-def invoice_detail(invoice_id):
-    """View invoice details"""
-    invoice = Invoice.query.filter_by(id=invoice_id, client_id=current_user.id).first_or_404()
-    return render_template('client/invoice_detail.html', invoice=invoice)
-
-@client_bp.route('/invoices/<invoice_id>/pay', methods=['POST'])
-@login_required
-@client_required
-def pay_invoice(invoice_id):
-    """Process invoice payment"""
-    invoice = Invoice.query.filter_by(id=invoice_id, client_id=current_user.id).first_or_404()
-    
-    if invoice.status != 'sent':
-        flash('This invoice cannot be paid.', 'error')
-        return redirect(url_for('client.invoice_detail', invoice_id=invoice_id))
-    
-    try:
-        # Create transaction
-        data = request.get_json()
-        transaction = Transaction(
-            case_id=invoice.case_id,
-            client_id=current_user.id,
-            lawyer_id=invoice.lawyer_id,
-            transaction_type='payment',
-            amount=invoice.total_amount,
-            status='completed',  # In real app, this would be 'pending' until payment gateway confirms
-            description=f'Payment for invoice {invoice.invoice_number}',
-            payment_method=data.get('payment_method'),
-            completed_at=datetime.utcnow()
-        )
-        db.session.add(transaction)
-        
-        # Update invoice
-        invoice.status = 'paid'
-        invoice.paid_date = datetime.utcnow().date()
-        invoice.transaction_id = transaction.id
-        
-        # Create notifications
-        notification_client = Notification(
-            recipient_id=current_user.id,
-            notification_type='payment_received',
-            title='Payment Processed',
-            message=f'Payment of ${invoice.total_amount} for invoice {invoice.invoice_number} has been processed',
-            related_case_id=invoice.case_id
-        )
-        db.session.add(notification_client)
-        
-        notification_lawyer = Notification(
-            recipient_id=invoice.lawyer_id,
-            notification_type='payment_received',
-            title='Payment Received',
-            message=f'Payment of ${invoice.total_amount} received for invoice {invoice.invoice_number}',
-            related_case_id=invoice.case_id
-        )
-        db.session.add(notification_lawyer)
-        
-        db.session.commit()
-        flash('Payment processed successfully!', 'success')
-        
-    except Exception as e:
-        db.session.rollback()
-        flash('Payment processing failed. Please try again.', 'error')
-    
-    return redirect(url_for('client.invoice_detail', invoice_id=invoice_id))
-
-@client_bp.route('/documents')
-@login_required
-@client_required
-def documents():
-    """View client documents"""
-    page = request.args.get('page', 1, type=int)
-    case_filter = request.args.get('case')
-    doc_type_filter = request.args.get('type')
-    
-    query = Document.query.join(Case).filter(Case.client_id == current_user.id)
-    
-    if case_filter:
-        query = query.filter(Document.case_id == case_filter)
-    
-    if doc_type_filter:
-        query = query.filter(Document.document_type == doc_type_filter)
-    
-    documents = query.order_by(Document.created_at.desc()).paginate(
-        page=page, per_page=15, error_out=False
-    )
-    
-    # Get client's cases for filter
-    client_cases = Case.query.filter_by(client_id=current_user.id).all()
-    
-    return render_template('client/documents.html', 
-                         documents=documents,
-                         cases=client_cases,
-                         current_case=case_filter,
-                         current_type=doc_type_filter)
-
-@client_bp.route('/notifications')
-@login_required
-@client_required
-def notifications():
-    """View client notifications"""
-    page = request.args.get('page', 1, type=int)
-    
-    notifications = Notification.query.filter_by(
-        recipient_id=current_user.id
-    ).order_by(Notification.created_at.desc()).paginate(
-        page=page, per_page=20, error_out=False
-    )
-    
-    # Mark notifications as read
-    unread_notifications = Notification.query.filter_by(
-        recipient_id=current_user.id,
-        is_read=False
-    ).all()
-    
-    for notif in unread_notifications:
-        notif.is_read = True
-    
-    try:
-        db.session.commit()
-    except:
-        db.session.rollback()
-    
-    return render_template('client/notifications.html', notifications=notifications)
-
-@client_bp.route('/api/stats')
-@login_required
-@client_required
-def api_stats():
-    """API endpoint for client statistics"""
     stats = {
-        'total_cases': Case.query.filter_by(client_id=current_user.id).count(),
-        'active_cases': Case.query.filter_by(client_id=current_user.id).filter(
+        "total_cases": Case.query.filter_by(client_id=current_user_id).count(),
+        "active_cases": Case.query.filter_by(client_id=current_user_id).filter(
             Case.status.in_(['open', 'assigned', 'in_progress'])
         ).count(),
-        'resolved_cases': Case.query.filter_by(client_id=current_user.id, status='resolved').count(),
-        'total_spent': float(db.session.query(db.func.sum(Transaction.amount)).filter(
-            Transaction.client_id == current_user.id,
+        "resolved_cases": Case.query.filter_by(client_id=current_user_id, status='resolved').count(),
+        "total_spent": float(db.session.query(db.func.sum(Transaction.amount)).filter(
+            Transaction.client_id == current_user_id,
             Transaction.status == 'completed'
         ).scalar() or 0),
-        'pending_requests': LawyerRequest.query.join(Case).filter(
-            Case.client_id == current_user.id,
+        "pending_requests": LawyerRequest.query.join(Case).filter(
+            Case.client_id == current_user_id,
             LawyerRequest.status == 'pending'
         ).count(),
-        'unread_notifications': Notification.query.filter_by(
-            recipient_id=current_user.id,
+        "unread_notifications": Notification.query.filter_by(
+            recipient_id=current_user_id,
             is_read=False
         ).count()
     }
     
-    return jsonify(stats)
-
-# Helper function
-def get_admin_user_id():
-    """Get admin user ID for notifications"""
-    from models import User
-    admin = User.query.filter_by(user_type='admin').first()
-    return admin.id if admin else None
+    return jsonify(stats), 200
