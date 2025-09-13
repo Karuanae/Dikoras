@@ -370,18 +370,6 @@ class Notification(db.Model):
         return f"<Notification for {self.recipient.get_full_name()}: {self.title}>"
 
 # System Settings (for admin)
-class SystemSettings(db.Model):
-    __tablename__ = 'system_settings'
-    
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    key = db.Column(db.String(100), unique=True, nullable=False)
-    value = db.Column(db.Text, nullable=False)
-    description = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    def __repr__(self):
-        return f"<SystemSettings {self.key}: {self.value}>"
 
 # Activity Log (for tracking admin activities)
 class ActivityLog(db.Model):

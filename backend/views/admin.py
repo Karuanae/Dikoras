@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 from models import (db, User, LawyerProfile, Case, LegalService, Transaction, 
-                   Invoice, Document, Notification, ActivityLog, SystemSettings, LawyerRequest, ChatMessage)
+                   Invoice, Document, Notification, ActivityLog, LawyerRequest, ChatMessage)
 import functools
 from datetime import datetime, timedelta
 from sqlalchemy import func, desc
@@ -450,31 +450,6 @@ def edit_legal_service(service_id):
     
     return render_template('admin/edit_legal_service.html', service=service)
 
-@admin_bp.route('/settings')
-@login_required
-@admin_required
-def settings():
-    """System settings"""
-    settings = SystemSettings.query.all()
-    return render_template('admin/settings.html', settings=settings)
-
-@admin_bp.route('/settings/<setting_id>/edit', methods=['POST'])
-@login_required
-@admin_required
-def update_setting(setting_id):
-    """Update system setting"""
-    setting = SystemSettings.query.get_or_404(setting_id)
-    
-    try:
-        data = request.get_json()
-        setting.value = data.get('value')
-        setting.updated_at = datetime.utcnow()
-
-        db.session.commit()
-        return jsonify({'message': 'Setting updated successfully!'}), 200
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': 'Error updating setting. Please try again.'}), 400
 
 @admin_bp.route('/activity-logs')
 @login_required
