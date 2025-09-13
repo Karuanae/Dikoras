@@ -12,6 +12,7 @@ flask-jwt-extended = "*"
 python-dotenv = "*"
 flask-wtf = "*"
 flask-login = "*"
+flask-migrate = "*"
 
 [dev-packages]
 
