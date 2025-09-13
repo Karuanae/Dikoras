@@ -121,3 +121,28 @@ def api_messages(case_id):
         'created_at': msg.created_at.strftime('%Y-%m-%d %H:%M:%S'),
         'is_current_user': msg.sender_id == current_user.id
     } for msg in messages])
+
+@chat_bp.route("/chat", methods=["GET"])
+def get_messages():
+    user_id = request.args.get("user_id")
+    messages = ChatMessage.query.filter_by(user_id=user_id).all() if user_id else ChatMessage.query.all()
+    return jsonify([{
+        "id": m.id,
+        "user_id": m.user_id,
+        "recipient_id": m.recipient_id,
+        "message": m.message,
+        "timestamp": m.timestamp
+    } for m in messages]), 200
+
+@chat_bp.route("/chat", methods=["POST"])
+def send_message():
+    data = request.get_json()
+    msg = ChatMessage(
+        user_id=data.get("user_id"),
+        recipient_id=data.get("recipient_id"),
+        message=data.get("message"),
+        timestamp=data.get("timestamp")
+    )
+    db.session.add(msg)
+    db.session.commit()
+    return jsonify({"success": "Message sent", "id": msg.id}), 201

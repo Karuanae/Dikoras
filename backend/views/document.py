@@ -117,3 +117,30 @@ def download(document_id):
     except FileNotFoundError:
         flash('File not found.', 'error')
         return redirect(url_for('case.detail', case_id=case.id))
+
+@document_bp.route("/documents", methods=["GET"])
+def get_documents():
+    case_id = request.args.get("case_id")
+    query = Document.query
+    if case_id:
+        query = query.filter_by(case_id=case_id)
+    documents = query.all()
+    return jsonify([{
+        "id": d.id,
+        "case_id": d.case_id,
+        "name": d.name,
+        "document_type": d.document_type,
+        "created_at": d.created_at
+    } for d in documents]), 200
+
+@document_bp.route("/documents", methods=["POST"])
+def upload_document():
+    data = request.get_json()
+    doc = Document(
+        case_id=data.get("case_id"),
+        name=data.get("name"),
+        document_type=data.get("document_type")
+    )
+    db.session.add(doc)
+    db.session.commit()
+    return jsonify({"success": "Document uploaded", "id": doc.id}), 201

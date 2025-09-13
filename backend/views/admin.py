@@ -549,3 +549,121 @@ def api_dashboard_stats():
     }
     
     return jsonify(stats)
+
+@admin_bp.route("/lawyers", methods=["GET"])
+def get_lawyers():
+    lawyers = User.query.filter_by(user_type="lawyer").all()
+    return jsonify([{
+        "id": l.id,
+        "first_name": l.first_name,
+        "last_name": l.last_name,
+        "email": l.email,
+        "approval_status": getattr(l, "approval_status", None),
+        "star_ratings": getattr(l, "star_ratings", None),
+        "years_of_experience": getattr(l, "years_of_experience", None),
+        "education": getattr(l, "education", None),
+        "hourly_rate": getattr(l, "hourly_rate", None),
+        "profile_picture": getattr(l, "profile_picture", None),
+        "description": getattr(l, "description", None)
+    } for l in lawyers]), 200
+
+@admin_bp.route("/lawyers/<int:user_id>/approve", methods=["PATCH"])
+def approve_lawyer(user_id):
+    user = User.query.get(user_id)
+    if not user or user.user_type != "lawyer":
+        return jsonify({"error": "Lawyer not found"}), 404
+    user.approval_status = "approved"
+    db.session.commit()
+    return jsonify({"success": "Lawyer approved"}), 200
+
+@admin_bp.route("/lawyers/<int:user_id>/reject", methods=["PATCH"])
+def reject_lawyer(user_id):
+    user = User.query.get(user_id)
+    if not user or user.user_type != "lawyer":
+        return jsonify({"error": "Lawyer not found"}), 404
+    user.approval_status = "rejected"
+    db.session.commit()
+    return jsonify({"success": "Lawyer rejected"}), 200
+
+@admin_bp.route("/clients", methods=["GET"])
+def get_clients():
+    clients = User.query.filter_by(user_type="client").all()
+    return jsonify([{
+        "id": c.id,
+        "first_name": c.first_name,
+        "last_name": c.last_name,
+        "email": c.email,
+        "is_active": getattr(c, "is_active", None)
+    } for c in clients]), 200
+
+@admin_bp.route("/cases", methods=["GET"])
+def get_cases():
+    cases = Case.query.all()
+    return jsonify([{
+        "id": case.id,
+        "title": case.title,
+        "status": case.status,
+        "client_id": case.client_id,
+        "lawyer_id": case.lawyer_id,
+        "priority": case.priority,
+        "created_at": case.created_at
+    } for case in cases]), 200
+
+@admin_bp.route("/legal-services", methods=["GET"])
+def get_legal_services():
+    services = LegalService.query.all()
+    return jsonify([{
+        "id": s.id,
+        "name": s.name,
+        "description": s.description,
+        "icon": s.icon,
+        "is_active": s.is_active
+    } for s in services]), 200
+
+@admin_bp.route("/transactions", methods=["GET"])
+def get_transactions():
+    transactions = Transaction.query.all()
+    return jsonify([{
+        "id": t.id,
+        "amount": float(t.amount),
+        "status": t.status,
+        "case_id": t.case_id,
+        "lawyer_id": t.lawyer_id,
+        "client_id": t.client_id,
+        "created_at": t.created_at
+    } for t in transactions]), 200
+
+@admin_bp.route("/invoices", methods=["GET"])
+def get_invoices():
+    invoices = Invoice.query.all()
+    return jsonify([{
+        "id": i.id,
+        "amount": float(i.amount),
+        "status": i.status,
+        "case_id": i.case_id,
+        "lawyer_id": i.lawyer_id,
+        "client_id": i.client_id,
+        "issue_date": i.issue_date
+    } for i in invoices]), 200
+
+@admin_bp.route("/notifications", methods=["GET"])
+def get_notifications():
+    notifications = Notification.query.all()
+    return jsonify([{
+        "id": n.id,
+        "title": n.title,
+        "message": n.message,
+        "recipient_id": n.recipient_id,
+        "is_read": n.is_read,
+        "created_at": n.created_at
+    } for n in notifications]), 200
+
+@admin_bp.route("/activity-logs", methods=["GET"])
+def get_activity_logs():
+    logs = ActivityLog.query.all()
+    return jsonify([{
+        "id": log.id,
+        "user_id": log.user_id,
+        "action": log.action,
+        "timestamp": log.timestamp
+    } for log in logs]), 200

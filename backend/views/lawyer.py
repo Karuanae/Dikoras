@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from models import db, Case, LegalService, LawyerRequest, Notification, Transaction, Invoice, Document
+from models import db, Case, LegalService, LawyerRequest, Notification, Transaction, Invoice, Document, LawyerProfile
 from datetime import datetime, date, timedelta
 from decimal import Decimal
 from utils import lawyer_required
@@ -91,14 +91,22 @@ def get_profile():
     
     # In a real implementation, you would fetch the lawyer's profile
     # This is a simplified version
+    # Fetch actual lawyer profile from database
+    lawyer_profile = LawyerProfile.query.filter_by(user_id=current_user_id).first()
+    if not lawyer_profile:
+        return jsonify({'error': 'Profile not found'}), 404
     return jsonify({
         'profile': {
-            'first_name': 'John',
-            'last_name': 'Doe',
-            'email': 'john.doe@example.com',
-            'specializations': ['Family Law', 'Criminal Law'],
-            'years_of_experience': 5,
-            'hourly_rate': 150.00
+            'first_name': lawyer_profile.first_name,
+            'last_name': lawyer_profile.last_name,
+            'profile_picture': lawyer_profile.profile_picture,
+            'description': lawyer_profile.description,
+            'location': lawyer_profile.location,
+            'star_ratings': lawyer_profile.star_ratings,
+            'years_of_experience': lawyer_profile.years_of_experience,
+            'education': lawyer_profile.education,
+            'hourly_rate': float(lawyer_profile.hourly_rate) if lawyer_profile.hourly_rate else None,
+            'approval_status': lawyer_profile.approval_status
         }
     }), 200
 
@@ -111,17 +119,33 @@ def update_profile():
     data = request.get_json()
     
     try:
-        # Update user information
-        # This would update the actual user and lawyer profile in a real implementation
+        # Update lawyer profile in database
+        lawyer_profile = LawyerProfile.query.filter_by(user_id=current_user_id).first()
+        if not lawyer_profile:
+            return jsonify({'error': 'Profile not found'}), 404
+        lawyer_profile.first_name = data.get('first_name', lawyer_profile.first_name)
+        lawyer_profile.last_name = data.get('last_name', lawyer_profile.last_name)
+        lawyer_profile.profile_picture = data.get('profile_picture', lawyer_profile.profile_picture)
+        lawyer_profile.description = data.get('description', lawyer_profile.description)
+        lawyer_profile.location = data.get('location', lawyer_profile.location)
+        lawyer_profile.star_ratings = data.get('star_ratings', lawyer_profile.star_ratings)
+        lawyer_profile.years_of_experience = data.get('years_of_experience', lawyer_profile.years_of_experience)
+        lawyer_profile.education = data.get('education', lawyer_profile.education)
+        lawyer_profile.hourly_rate = data.get('hourly_rate', lawyer_profile.hourly_rate)
+        db.session.commit()
         return jsonify({
             'message': 'Profile updated successfully',
             'profile': {
-                'first_name': data.get('first_name'),
-                'last_name': data.get('last_name'),
-                'email': data.get('email'),
-                'specializations': data.get('specializations', []),
-                'years_of_experience': data.get('years_of_experience'),
-                'hourly_rate': data.get('hourly_rate')
+                'first_name': lawyer_profile.first_name,
+                'last_name': lawyer_profile.last_name,
+                'profile_picture': lawyer_profile.profile_picture,
+                'description': lawyer_profile.description,
+                'location': lawyer_profile.location,
+                'star_ratings': lawyer_profile.star_ratings,
+                'years_of_experience': lawyer_profile.years_of_experience,
+                'education': lawyer_profile.education,
+                'hourly_rate': float(lawyer_profile.hourly_rate) if lawyer_profile.hourly_rate else None,
+                'approval_status': lawyer_profile.approval_status
             }
         }), 200
         

@@ -52,18 +52,17 @@ login_manager.login_message = 'Please log in to access this page.'
 def load_user(user_id):
     return User.query.get(user_id)
 
-# Register Blueprints
-from views.auth import auth_bp
-from views.admin import admin_bp
-from views.client import client_bp
-from views.lawyer import lawyer_bp
-from views.main import main_bp
 
+# Register Blueprints (updated for consistency)
+from views import auth_bp, admin_bp, client_bp, lawyer_bp, main_bp, chat_bp, document_bp, user_bp
+app.register_blueprint(auth_bp)
+app.register_blueprint(admin_bp)
+app.register_blueprint(client_bp)
+app.register_blueprint(lawyer_bp)
 app.register_blueprint(main_bp)
-app.register_blueprint(auth_bp, url_prefix='/auth')
-app.register_blueprint(admin_bp, url_prefix='/admin')
-app.register_blueprint(client_bp, url_prefix='/client')
-app.register_blueprint(lawyer_bp, url_prefix='/lawyer')
+app.register_blueprint(chat_bp)
+app.register_blueprint(document_bp)
+app.register_blueprint(user_bp)
 
 # JWT token blocklist callback
 @jwt.token_in_blocklist_loader

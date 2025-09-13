@@ -131,3 +131,7 @@ def api_lawyers_search():
         'name': lawyer.user.get_full_name(),
         'specializations': [spec.name for spec in lawyer.specializations]
     } for lawyer in lawyers])
+
+@main_bp.route("/", methods=["GET"])
+def api_home():
+    return jsonify({"message": "Welcome to Dikoras Legal Platform API"}), 200

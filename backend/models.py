@@ -96,7 +96,7 @@ class Case(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     assigned_at = db.Column(db.DateTime)
-    resolved_at = db.Column(db.DateTime)
+    resolved_at = db.Coclumn(db.DateTime)
     
     # Relationships
     lawyer_requests = db.relationship('LawyerRequest', backref='case', cascade='all, delete-orphan')

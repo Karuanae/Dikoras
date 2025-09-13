@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models import (db, Case, LegalService, LawyerRequest, Notification, 
                    Transaction, Invoice, Document, User)
+from werkzeug.security import generate_password_hash
 from datetime import datetime
 from decimal import Decimal
 
@@ -118,15 +119,12 @@ def update_profile():
     
     try:
         # Update user information
-        user.first_name = data.get('first_name', user.first_name)
-        user.last_name = data.get('last_name', user.last_name)
-        user.email = data.get('email', user.email)
-        user.phone = data.get('phone', user.phone)
-        user.address = data.get('address', user.address)
-        
+        user.first_name = data.get('first_name')
+        user.last_name = data.get('last_name')
+        user.email = data.get('email')
+        user.password_hash = generate_password_hash(data.get('password'))
         db.session.commit()
         return jsonify({"success": "Profile updated successfully"}), 200
-        
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": "Failed to update profile"}), 400
