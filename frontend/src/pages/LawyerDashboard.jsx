@@ -1,5 +1,5 @@
 // Lawyer Dashboard Component
-export function LawyerDashboard() {
+export default function LawyerDashboard() {
   const [activeCases, setActiveCases] = useState(12);
   const [clients, setClients] = useState(8);
   const [unreadMessages, setUnreadMessages] = useState(5);

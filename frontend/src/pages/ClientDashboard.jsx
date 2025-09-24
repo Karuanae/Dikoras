@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // Client Dashboard Component
-export function ClientDashboard() {
+export default function ClientDashboard() {
   const [selectedService, setSelectedService] = useState(null);
   const [activeCases, setActiveCases] = useState(3);
   const [messages, setMessages] = useState(2);
