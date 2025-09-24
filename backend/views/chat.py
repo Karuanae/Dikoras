@@ -1,7 +1,7 @@
 # chat.py
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
-from models import db, Case, ChatMessage, Notification
+from models import db, Case, Chat, Notification
 from datetime import datetime
 
 chat_bp = Blueprint('chat', __name__)
@@ -24,15 +24,15 @@ def chat_room(case_id):
         return redirect(url_for('main.home'))
     
     # Get messages
-    messages = ChatMessage.query.filter_by(case_id=case_id).order_by(
-        ChatMessage.created_at.asc()
+    messages = Chat.query.filter_by(case_id=case_id).order_by(
+        Chat.created_at.asc()
     ).all()
     
     # Mark messages as read
-    unread_messages = ChatMessage.query.filter(
-        ChatMessage.case_id == case_id,
-        ChatMessage.sender_id != current_user.id,
-        ChatMessage.is_read == False
+    unread_messages = Chat.query.filter(
+        Chat.case_id == case_id,
+        Chat.sender_id != current_user.id,
+        Chat.is_read == False
     ).all()
     
     for msg in unread_messages:
@@ -62,13 +62,13 @@ def send_message(case_id):
         return jsonify({'error': 'Message cannot be empty'}), 400
     
     try:
-        message = ChatMessage(
+        message = Chat(
             case_id=case_id,
             sender_id=current_user.id,
             message=message_text
         )
         db.session.add(message)
-        
+
         # Create notification for the other party
         recipient_id = case.lawyer_id if current_user.id == case.client_id else case.client_id
         if recipient_id:
@@ -80,9 +80,9 @@ def send_message(case_id):
                 related_case_id=case_id
             )
             db.session.add(notification)
-        
+
         db.session.commit()
-        
+
         return jsonify({
             'success': True,
             'message': {
@@ -92,7 +92,6 @@ def send_message(case_id):
                 'created_at': message.created_at.strftime('%Y-%m-%d %H:%M:%S')
             }
         })
-        
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': 'Failed to send message'}), 500
@@ -109,8 +108,8 @@ def api_messages(case_id):
     elif current_user.user_type == 'lawyer' and case.lawyer_id != current_user.id:
         return jsonify({'error': 'Access denied'}), 403
     
-    messages = ChatMessage.query.filter_by(case_id=case_id).order_by(
-        ChatMessage.created_at.asc()
+    messages = Chat.query.filter_by(case_id=case_id).order_by(
+        Chat.created_at.asc()
     ).all()
     
     return jsonify([{
@@ -125,7 +124,7 @@ def api_messages(case_id):
 @chat_bp.route("/chat", methods=["GET"])
 def get_messages():
     user_id = request.args.get("user_id")
-    messages = ChatMessage.query.filter_by(user_id=user_id).all() if user_id else ChatMessage.query.all()
+    messages = Chat.query.filter_by(user_id=user_id).all() if user_id else Chat.query.all()
     return jsonify([{
         "id": m.id,
         "user_id": m.user_id,
@@ -133,16 +132,3 @@ def get_messages():
         "message": m.message,
         "timestamp": m.timestamp
     } for m in messages]), 200
-
-@chat_bp.route("/chat", methods=["POST"])
-def send_message():
-    data = request.get_json()
-    msg = ChatMessage(
-        user_id=data.get("user_id"),
-        recipient_id=data.get("recipient_id"),
-        message=data.get("message"),
-        timestamp=data.get("timestamp")
-    )
-    db.session.add(msg)
-    db.session.commit()
-    return jsonify({"success": "Message sent", "id": msg.id}), 201

@@ -55,6 +55,11 @@ def login():
         }
     }), 200
 
+# GET /login route for Flask-Login compatibility
+@auth_bp.route("/login", methods=["GET"])
+def login_get():
+    return jsonify({"message": "Please log in via POST to this endpoint."}), 401
+
 # Get current user info
 @auth_bp.route("/current_user", methods=["GET"])
 @jwt_required()

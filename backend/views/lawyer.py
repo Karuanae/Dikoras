@@ -1,9 +1,9 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from models import db, Case, LegalService, LawyerRequest, Notification, Transaction, Invoice, Document, LawyerProfile
+from models import db, User, Case, LegalService, LawyerRequest, Notification, Transaction, Invoice, Document
 from datetime import datetime, date, timedelta
 from decimal import Decimal
-from utils import lawyer_required
+from decorators import lawyer_required 
 
 lawyer_bp = Blueprint('lawyer', __name__)
 
@@ -22,7 +22,6 @@ def pending_approval():
 
 @lawyer_bp.route('/dashboard', methods=['GET'])
 @jwt_required()
-@lawyer_required
 def dashboard():
     """Lawyer dashboard data"""
     current_user_id = get_jwt_identity()
@@ -84,7 +83,6 @@ def dashboard():
 
 @lawyer_bp.route('/profile', methods=['GET'])
 @jwt_required()
-@lawyer_required
 def get_profile():
     """Get lawyer profile"""
     current_user_id = get_jwt_identity()
@@ -112,7 +110,6 @@ def get_profile():
 
 @lawyer_bp.route('/profile', methods=['PUT'])
 @jwt_required()
-@lawyer_required
 def update_profile():
     """Update lawyer profile"""
     current_user_id = get_jwt_identity()
@@ -120,32 +117,36 @@ def update_profile():
     
     try:
         # Update lawyer profile in database
-        lawyer_profile = LawyerProfile.query.filter_by(user_id=current_user_id).first()
-        if not lawyer_profile:
+        lawyer = User.query.filter_by(id=current_user_id, user_type='lawyer').first()
+        if not lawyer:
             return jsonify({'error': 'Profile not found'}), 404
-        lawyer_profile.first_name = data.get('first_name', lawyer_profile.first_name)
-        lawyer_profile.last_name = data.get('last_name', lawyer_profile.last_name)
-        lawyer_profile.profile_picture = data.get('profile_picture', lawyer_profile.profile_picture)
-        lawyer_profile.description = data.get('description', lawyer_profile.description)
-        lawyer_profile.location = data.get('location', lawyer_profile.location)
-        lawyer_profile.star_ratings = data.get('star_ratings', lawyer_profile.star_ratings)
-        lawyer_profile.years_of_experience = data.get('years_of_experience', lawyer_profile.years_of_experience)
-        lawyer_profile.education = data.get('education', lawyer_profile.education)
-        lawyer_profile.hourly_rate = data.get('hourly_rate', lawyer_profile.hourly_rate)
+        lawyer.first_name = data.get('first_name', lawyer.first_name)
+        lawyer.last_name = data.get('last_name', lawyer.last_name)
+        lawyer.profile_picture = data.get('profile_picture', lawyer.profile_picture)
+        lawyer.description = data.get('description', lawyer.description)
+        lawyer.location = data.get('location', lawyer.location)
+        if 'star_ratings' in data:
+            lawyer.star_ratings = data.get('star_ratings', getattr(lawyer, 'star_ratings', None))
+        if 'years_of_experience' in data:
+            lawyer.years_of_experience = data.get('years_of_experience', getattr(lawyer, 'years_of_experience', None))
+        if 'education' in data:
+            lawyer.education = data.get('education', getattr(lawyer, 'education', None))
+        if 'hourly_rate' in data:
+            lawyer.hourly_rate = data.get('hourly_rate', getattr(lawyer, 'hourly_rate', None))
         db.session.commit()
         return jsonify({
             'message': 'Profile updated successfully',
             'profile': {
-                'first_name': lawyer_profile.first_name,
-                'last_name': lawyer_profile.last_name,
-                'profile_picture': lawyer_profile.profile_picture,
-                'description': lawyer_profile.description,
-                'location': lawyer_profile.location,
-                'star_ratings': lawyer_profile.star_ratings,
-                'years_of_experience': lawyer_profile.years_of_experience,
-                'education': lawyer_profile.education,
-                'hourly_rate': float(lawyer_profile.hourly_rate) if lawyer_profile.hourly_rate else None,
-                'approval_status': lawyer_profile.approval_status
+                'first_name': lawyer.first_name,
+                'last_name': lawyer.last_name,
+                'profile_picture': lawyer.profile_picture,
+                'description': lawyer.description,
+                'location': lawyer.location,
+                'star_ratings': getattr(lawyer, 'star_ratings', None),
+                'years_of_experience': getattr(lawyer, 'years_of_experience', None),
+                'education': getattr(lawyer, 'education', None),
+                'hourly_rate': float(getattr(lawyer, 'hourly_rate', 0)) if getattr(lawyer, 'hourly_rate', None) else None,
+                'approval_status': getattr(lawyer, 'approval_status', None)
             }
         }), 200
         
@@ -154,7 +155,6 @@ def update_profile():
 
 @lawyer_bp.route('/cases', methods=['GET'])
 @jwt_required()
-@lawyer_required
 def get_cases():
     """Get lawyer's cases"""
     current_user_id = get_jwt_identity()

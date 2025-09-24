@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
-from models import (db, User, LawyerProfile, Case, LegalService, Transaction, 
-                   Invoice, Document, Notification, ActivityLog, LawyerRequest, ChatMessage)
+from models import (db, User, Case, LegalService, Transaction, 
+                   Invoice, Document, Notification, ActivityLog, LawyerRequest, Chat)
 import functools
 from datetime import datetime, timedelta
 from sqlalchemy import func, desc
@@ -28,8 +28,8 @@ def dashboard():
     total_users = User.query.count()
     total_clients = User.query.filter_by(user_type='client').count()
     total_lawyers = User.query.filter_by(user_type='lawyer').count()
-    pending_lawyers = LawyerProfile.query.filter_by(approval_status='pending').count()
-    approved_lawyers = LawyerProfile.query.filter_by(approval_status='approved').count()
+    pending_lawyers = User.query.filter_by(user_type='lawyer', approval_status='pending').count()
+    approved_lawyers = User.query.filter_by(user_type='lawyer', approval_status='approved').count()
     
     # Case statistics
     total_cases = Case.query.count()
@@ -112,20 +112,16 @@ def lawyers():
     status_filter = request.args.get('status')
     search = request.args.get('search')
     
-    query = LawyerProfile.query.join(User)
-    
+    query = User.query.filter_by(user_type='lawyer')
     if status_filter:
-        query = query.filter(LawyerProfile.approval_status == status_filter)
-    
+        query = query.filter(User.approval_status == status_filter)
     if search:
         query = query.filter(
             User.first_name.contains(search) |
             User.last_name.contains(search) |
-            User.email.contains(search) |
-            LawyerProfile.license_number.contains(search)
+            User.email.contains(search)
         )
-    
-    lawyers = query.order_by(desc(LawyerProfile.created_at)).paginate(
+    lawyers = query.order_by(desc(User.created_at)).paginate(
         page=page, per_page=15, error_out=False
     )
     
@@ -139,7 +135,7 @@ def lawyers():
 @admin_required
 def lawyer_detail(lawyer_id):
     """View lawyer details"""
-    lawyer = LawyerProfile.query.get_or_404(lawyer_id)
+    lawyer = User.query.filter_by(id=lawyer_id, user_type='lawyer').first_or_404()
     
     # Get lawyer's cases
     lawyer_cases = Case.query.filter_by(lawyer_id=lawyer.user_id).order_by(
@@ -162,7 +158,7 @@ def lawyer_detail(lawyer_id):
 @admin_required
 def approve_lawyer(lawyer_id):
     """Approve lawyer registration"""
-    lawyer = LawyerProfile.query.get_or_404(lawyer_id)
+    lawyer = User.query.filter_by(id=lawyer_id, user_type='lawyer').first_or_404()
     
     if lawyer.approval_status != 'pending':
         flash('This lawyer has already been processed.', 'warning')
@@ -209,7 +205,7 @@ def approve_lawyer(lawyer_id):
 @admin_required
 def reject_lawyer(lawyer_id):
     """Reject lawyer registration"""
-    lawyer = LawyerProfile.query.get_or_404(lawyer_id)
+    lawyer = User.query.filter_by(id=lawyer_id, user_type='lawyer').first_or_404()
     
     if lawyer.approval_status != 'pending':
         flash('This lawyer has already been processed.', 'warning')
@@ -355,7 +351,7 @@ def case_detail(case_id):
     transactions = Transaction.query.filter_by(case_id=case_id).all()
     invoices = Invoice.query.filter_by(case_id=case_id).all()
     lawyer_requests = LawyerRequest.query.filter_by(case_id=case_id).all()
-    messages = ChatMessage.query.filter_by(case_id=case_id).count()
+    messages = Chat.query.filter_by(case_id=case_id).count()
     
     return render_template('admin/case_detail.html',
                          case=case,
@@ -520,11 +516,12 @@ def reports():
             Transaction.created_at < end_date,
             Transaction.status == 'completed'
         ).scalar() or 0,
-        'lawyer_approvals': LawyerProfile.query.filter(
-            LawyerProfile.approved_at >= start_date,
-            LawyerProfile.approved_at < end_date,
-            LawyerProfile.approval_status == 'approved'
-        ).count()
+        'lawyer_approvals': User.query.filter(
+            User.user_type == 'lawyer',
+            User.approved_at >= start_date,
+            User.approved_at < end_date,
+            User.approval_status == 'approved'
+        ).count(),
     }
     
     return render_template('admin/reports.html', 
@@ -539,7 +536,7 @@ def api_dashboard_stats():
     """API endpoint for dashboard statistics"""
     stats = {
         'total_users': User.query.count(),
-        'pending_lawyers': LawyerProfile.query.filter_by(approval_status='pending').count(),
+    'pending_lawyers': User.query.filter_by(user_type='lawyer', approval_status='pending').count(),
         'total_cases': Case.query.count(),
         'open_cases': Case.query.filter_by(status='open').count(),
         'total_revenue': float(db.session.query(func.sum(Transaction.amount)).filter(
@@ -567,23 +564,7 @@ def get_lawyers():
         "description": getattr(l, "description", None)
     } for l in lawyers]), 200
 
-@admin_bp.route("/lawyers/<int:user_id>/approve", methods=["PATCH"])
-def approve_lawyer(user_id):
-    user = User.query.get(user_id)
-    if not user or user.user_type != "lawyer":
-        return jsonify({"error": "Lawyer not found"}), 404
-    user.approval_status = "approved"
-    db.session.commit()
-    return jsonify({"success": "Lawyer approved"}), 200
 
-@admin_bp.route("/lawyers/<int:user_id>/reject", methods=["PATCH"])
-def reject_lawyer(user_id):
-    user = User.query.get(user_id)
-    if not user or user.user_type != "lawyer":
-        return jsonify({"error": "Lawyer not found"}), 404
-    user.approval_status = "rejected"
-    db.session.commit()
-    return jsonify({"success": "Lawyer rejected"}), 200
 
 @admin_bp.route("/clients", methods=["GET"])
 def get_clients():

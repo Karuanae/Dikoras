@@ -45,13 +45,12 @@ jwt.init_app(app)
 # Login Manager setup
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'auth.login'
+login_manager.login_view = 'auth_bp.login'
 login_manager.login_message = 'Please log in to access this page.'
 
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(user_id)
-
 
 # Register Blueprints (updated for consistency)
 from views import auth_bp, admin_bp, client_bp, lawyer_bp, main_bp, chat_bp, document_bp, user_bp
