@@ -5,7 +5,7 @@ const sidebarLinks = [
   { name: 'Dashboard', path: '/lawyer/dashboard' },
   { name: 'Cases', path: '/lawyer/cases' },
   { name: 'Clients', path: '/lawyer/clients' },
-  { name: 'Messages', path: '/lawyer/messages' },
+  { name: 'Chats', path: '/lawyer/chats' },
   { name: 'Documents', path: '/lawyer/documents' },
   { name: 'Invoices', path: '/lawyer/invoices' },
   { name: 'Profile', path: '/lawyer/profile' },

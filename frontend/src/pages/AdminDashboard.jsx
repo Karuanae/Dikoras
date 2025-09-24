@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getDashboardStats, getLawyers, getCases, getClients, activateLawyer, deactivateLawyer } from '../services/api';
 
 export default function AdminDashboard() {
   const [pendingLawyers, setPendingLawyers] = useState([]);
@@ -18,57 +19,56 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const navigate = useNavigate();
 
-  // Mock data - in a real app, this would come from API calls
+  // Fetch data from API
   useEffect(() => {
-    // Fetch pending lawyer approvals
-    const lawyers = [
-      { id: 1, name: 'John Smith', specialization: 'Family Law', email: 'john@example.com', registrationDate: '2023-05-15' },
-      { id: 2, name: 'Emily Johnson', specialization: 'Corporate Law', email: 'emily@example.com', registrationDate: '2023-05-18' },
-      { id: 3, name: 'Michael Brown', specialization: 'Criminal Law', email: 'michael@example.com', registrationDate: '2023-05-20' },
-      { id: 4, name: 'Sarah Williams', specialization: 'Intellectual Property', email: 'sarah@example.com', registrationDate: '2023-05-22' },
-      { id: 5, name: 'Robert Davis', specialization: 'Immigration Law', email: 'robert@example.com', registrationDate: '2023-05-25' }
-    ];
-    setPendingLawyers(lawyers);
-
-    // Fetch recent client-lawyer contacts
-    const contacts = [
-      { id: 1, clientName: 'Alice Thompson', lawyerName: 'David Wilson', caseType: 'Divorce', date: '2023-05-28 14:30' },
-      { id: 2, clientName: 'Brian Miller', lawyerName: 'Jennifer Lee', caseType: 'Business Contract', date: '2023-05-27 11:15' },
-      { id: 3, clientName: 'Catherine Moore', lawyerName: 'James Taylor', caseType: 'Personal Injury', date: '2023-05-26 16:45' },
-      { id: 4, clientName: 'Daniel Harris', lawyerName: 'Patricia Martin', caseType: 'Real Estate', date: '2023-05-25 09:20' }
-    ];
-    setRecentContacts(contacts);
-
-    // Fetch new case submissions
-    const cases = [
-      { id: 1, title: 'Divorce Proceedings', client: 'Alice Thompson', type: 'Family Law', description: 'Need assistance with divorce and child custody arrangements.', submitted: '2023-05-28' },
-      { id: 2, title: 'Business Contract Review', client: 'Brian Miller', type: 'Corporate Law', description: 'Need legal review of a new business partnership agreement.', submitted: '2023-05-27' },
-      { id: 3, title: 'Personal Injury Claim', client: 'Catherine Moore', type: 'Personal Injury', description: 'Car accident injury seeking compensation for damages.', submitted: '2023-05-26' },
-      { id: 4, title: 'Property Purchase', client: 'Daniel Harris', type: 'Real Estate', description: 'Legal assistance needed for residential property purchase.', submitted: '2023-05-25' },
-      { id: 5, title: 'Trademark Registration', client: 'Ethan Clark', type: 'Intellectual Property', description: 'Need to register a trademark for my business brand.', submitted: '2023-05-24' }
-    ];
-    setNewCases(cases);
+    async function fetchData() {
+      try {
+        const statsData = await getDashboardStats();
+        setStats(statsData);
+        const lawyersData = await getLawyers();
+        setPendingLawyers(lawyersData.filter(l => l.status === 'pending'));
+        setLawyerOptions(lawyersData);
+        const casesData = await getCases();
+        setNewCases(casesData.filter(c => c.status === 'new'));
+        // If you have an API for recent contacts, fetch here. Otherwise, leave as empty array.
+        // Example: const contactsData = await getRecentContacts(); setRecentContacts(contactsData);
+        setRecentContacts([]); // TODO: Replace with API call if available
+      } catch (err) {
+        // Handle error (show notification, etc.)
+      }
+    }
+    fetchData();
   }, []);
 
-  const handleApprove = (id) => {
-    setPendingLawyers(pendingLawyers.filter(lawyer => lawyer.id !== id));
-    setStats({...stats, pendingApprovals: stats.pendingApprovals - 1});
-    // In a real app, this would call an API to approve the lawyer
+  const [lawyerOptions, setLawyerOptions] = useState([]);
+
+  const handleApprove = async (id) => {
+    try {
+      await activateLawyer(id);
+      setPendingLawyers(pendingLawyers.filter(lawyer => lawyer.id !== id));
+      setStats({...stats, pendingApprovals: stats.pendingApprovals - 1});
+    } catch (err) {
+      // Handle error
+    }
   };
 
-  const handleDisapprove = (id) => {
-    setPendingLawyers(pendingLawyers.filter(lawyer => lawyer.id !== id));
-    setStats({...stats, pendingApprovals: stats.pendingApprovals - 1});
-    // In a real app, this would call an API to disapprove the lawyer
+  const handleDisapprove = async (id) => {
+    try {
+      await deactivateLawyer(id);
+      setPendingLawyers(pendingLawyers.filter(lawyer => lawyer.id !== id));
+      setStats({...stats, pendingApprovals: stats.pendingApprovals - 1});
+    } catch (err) {
+      // Handle error
+    }
   };
 
-  const handleAssignLawyer = () => {
+  const handleAssignLawyer = async () => {
     if (selectedCase && assignLawyerId) {
+      // TODO: Call API to assign lawyer to case
       setNewCases(newCases.filter(c => c.id !== selectedCase.id));
       setStats({...stats, unassignedCases: stats.unassignedCases - 1});
       setSelectedCase(null);
       setAssignLawyerId('');
-      // In a real app, this would call an API to assign the lawyer to the case
     }
   };
 
@@ -278,11 +278,11 @@ export default function AdminDashboard() {
                   className="p-2 border border-gray-300 rounded"
                 >
                   <option value="">Select a lawyer</option>
-                  <option value="1">David Wilson (Family Law)</option>
-                  <option value="2">Jennifer Lee (Corporate Law)</option>
-                  <option value="3">James Taylor (Personal Injury)</option>
-                  <option value="4">Patricia Martin (Real Estate)</option>
-                  <option value="5">Richard Anderson (Intellectual Property)</option>
+                  {lawyerOptions.map(lawyer => (
+                    <option key={lawyer.id} value={lawyer.id}>
+                      {lawyer.name} ({lawyer.specialization})
+                    </option>
+                  ))}
                 </select>
                 <button 
                   className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded"

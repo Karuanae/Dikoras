@@ -4,7 +4,7 @@ from werkzeug.security import check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime, timezone
 
-auth_bp = Blueprint("auth_bp", __name__)
+auth_bp = Blueprint("auth_bp", __name__, url_prefix="/auth")
 
 # Login
 @auth_bp.route("/login", methods=["POST"])

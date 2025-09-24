@@ -1,28 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getCases, getMessages, updateCase } from '../services/api';
 
 // Client Dashboard Component
 export default function ClientDashboard() {
   const [selectedService, setSelectedService] = useState(null);
-  const [activeCases, setActiveCases] = useState(3);
-  const [messages, setMessages] = useState(2);
+  const [activeCases, setActiveCases] = useState(0);
+  const [messages, setMessages] = useState(0);
   const [cases, setCases] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Load data from localStorage or API
-    const service = localStorage.getItem('selectedService');
-    const savedCases = JSON.parse(localStorage.getItem('clientCases') || '[]');
-    const messageCount = parseInt(localStorage.getItem('unreadMessages') || '2');
-    
-    if (service) {
-      setSelectedService(JSON.parse(service));
-      localStorage.removeItem('selectedService');
+    async function fetchData() {
+      try {
+        // Fetch cases from API
+        const casesData = await getCases();
+        setCases(casesData);
+        setActiveCases(casesData.filter(caseItem => caseItem.status === 'active').length);
+        // Fetch messages from API (assuming clientId is available)
+        // Replace 'clientId' with actual client id from auth context if available
+        const clientId = null; // TODO: get from auth context
+        if (clientId) {
+          const messagesData = await getMessages(clientId);
+          setMessages(messagesData.unreadCount || 0);
+        } else {
+          setMessages(0);
+        }
+      } catch (err) {
+        // Handle error
+      }
     }
-    
-    setCases(savedCases);
-    setActiveCases(savedCases.filter(caseItem => caseItem.status === 'active').length);
-    setMessages(messageCount);
+    fetchData();
   }, []);
 
   const handlePostCase = () => {
@@ -50,34 +58,20 @@ export default function ClientDashboard() {
     navigate('/client/lawyers');
   };
 
-  const handleHireLawyer = (caseId) => {
-    // In a real app, this would call an API to hire a lawyer for a specific case
-    const updatedCases = cases.map(c => 
-      c.id === caseId ? {...c, status: 'lawyer-hired', hired: true} : c
-    );
-    setCases(updatedCases);
-    localStorage.setItem('clientCases', JSON.stringify(updatedCases));
-    setActiveCases(updatedCases.filter(caseItem => caseItem.status === 'active' || caseItem.status === 'lawyer-hired').length);
-    alert('Lawyer hired successfully!');
+  const handleHireLawyer = async (caseId) => {
+    try {
+      // In a real app, this would call an API to hire a lawyer for a specific case
+      await updateCase(caseId, { status: 'lawyer-hired', hired: true });
+      const casesData = await getCases();
+      setCases(casesData);
+      setActiveCases(casesData.filter(caseItem => caseItem.status === 'active' || caseItem.status === 'lawyer-hired').length);
+      alert('Lawyer hired successfully!');
+    } catch (err) {
+      // Handle error
+    }
   };
 
-  // Sample case data - in a real app, this would come from an API
-  const sampleCases = [
-    { id: 1, title: 'Divorce Proceedings', type: 'Family Law', status: 'active', proposals: 3 },
-    { id: 2, title: 'Business Contract Review', type: 'Corporate Law', status: 'proposals-received', proposals: 5 },
-    { id: 3, title: 'Property Dispute', type: 'Real Estate', status: 'active', proposals: 2 },
-  ];
-
-  // Initialize cases if none exist
-  useEffect(() => {
-    if (cases.length === 0) {
-      const storedCases = JSON.parse(localStorage.getItem('clientCases') || '[]');
-      if (storedCases.length === 0) {
-        localStorage.setItem('clientCases', JSON.stringify(sampleCases));
-        setCases(sampleCases);
-      }
-    }
-  }, [cases]);
+  // ...existing code...
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">

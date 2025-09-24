@@ -1,51 +1,57 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { getLawyerClients } from '../services/api';
 
 export default function LawyerClients() {
+  const [clients, setClients] = useState([]);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    async function fetchClients() {
+      try {
+        const clientsData = await getLawyerClients();
+        setClients(clientsData);
+      } catch (err) {
+        // Handle error
+      }
+    }
+    fetchClients();
+  }, []);
+
+  const handleContactClient = (clientId) => {
+    navigate(`/lawyer/messages?client=${clientId}`);
+  };
+
+  const getInitials = (name) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  };
+
   return (
     <>
       <h1 className="text-3xl font-extrabold text-blue-900 mb-6">Clients</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">JS</div>
-            <div>
-              <h3 className="font-bold text-blue-900">John Smith</h3>
-              <p className="text-blue-600 text-sm">3 Active Cases</p>
+        {clients.length === 0 ? (
+          <div className="col-span-3 text-blue-700">No clients found.</div>
+        ) : (
+          clients.map(client => (
+            <div key={client.id} className={`rounded-xl p-6 border shadow ${client.status === 'completed' ? 'bg-green-50 border-green-200' : client.status === 'pending' ? 'bg-purple-50 border-purple-200' : 'bg-blue-50 border-blue-200'}`}>
+              <div className="flex items-center space-x-3 mb-4">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold ${client.status === 'completed' ? 'bg-green-600' : client.status === 'pending' ? 'bg-purple-600' : 'bg-blue-600'}`}>{getInitials(client.name)}</div>
+                <div>
+                  <h3 className={`font-bold ${client.status === 'completed' ? 'text-green-900' : client.status === 'pending' ? 'text-purple-900' : 'text-blue-900'}`}>{client.name}</h3>
+                  <p className={`${client.status === 'completed' ? 'text-green-600' : client.status === 'pending' ? 'text-purple-600' : 'text-blue-600'} text-sm`}>{client.casesCount} {client.status === 'completed' ? 'Completed Case' : client.status === 'pending' ? 'Pending Case' : 'Active Cases'}</p>
+                </div>
+              </div>
+              <p className={`${client.status === 'completed' ? 'text-green-700' : client.status === 'pending' ? 'text-purple-700' : 'text-blue-700'} text-sm mb-4`}>{client.specialization}</p>
+              <button 
+                className={`${client.status === 'completed' ? 'bg-green-600 hover:bg-green-700' : client.status === 'pending' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'} text-white px-4 py-2 rounded-lg text-sm w-full`}
+                onClick={() => handleContactClient(client.id)}
+              >
+                Contact Client
+              </button>
             </div>
-          </div>
-          <p className="text-blue-700 text-sm mb-4">Corporate Law, Contract Review</p>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 w-full">
-            Contact Client
-          </button>
-        </div>
-
-        <div className="bg-green-50 rounded-xl p-6 border border-green-200">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center text-white font-bold">SJ</div>
-            <div>
-              <h3 className="font-bold text-green-900">Sarah Johnson</h3>
-              <p className="text-green-600 text-sm">1 Completed Case</p>
-            </div>
-          </div>
-          <p className="text-green-700 text-sm mb-4">Family Law, Divorce</p>
-          <button className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700 w-full">
-            Contact Client
-          </button>
-        </div>
-
-        <div className="bg-purple-50 rounded-xl p-6 border border-purple-200">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">MW</div>
-            <div>
-              <h3 className="font-bold text-purple-900">Mike Wilson</h3>
-              <p className="text-purple-600 text-sm">1 Pending Case</p>
-            </div>
-          </div>
-          <p className="text-purple-700 text-sm mb-4">Business Law, LLC Formation</p>
-          <button className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700 w-full">
-            Contact Client
-          </button>
-        </div>
+          ))
+        )}
       </div>
     </>
   );

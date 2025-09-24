@@ -9,14 +9,13 @@ import Register from './pages/Register';
 import LawyerRegistration from './pages/LawyerRegistration'; // Add this import
 import ClientDashboard from './pages/ClientDashboard';
 import ClientCases from './pages/ClientCases';
-import ClientMessages from './pages/ClientMessages';
+import Chat from './pages/Chat';
 import ClientDocuments from './pages/ClientDocuments';
 import ClientInvoices from './pages/ClientInvoices';
 import ClientTransactions from './pages/ClientTransactions';
 import LawyerDashboard from './pages/LawyerDashboard';
 import LawyerCases from './pages/LawyerCases';
 import LawyerClients from './pages/LawyerClients';
-import LawyerMessages from './pages/LawyerMessages';
 import LawyerDocuments from './pages/LawyerDocuments';
 import LawyerInvoices from './pages/LawyerInvoices';
 import LawyerProfile from './pages/LawyerProfile';
@@ -64,7 +63,8 @@ function App() {
             }>
               <Route path="dashboard" element={<ClientDashboard />} />
               <Route path="cases" element={<ClientCases />} />
-              <Route path="messages" element={<ClientMessages />} />
+              <Route path="cases/new" element={<PostCase />} />
+              <Route path="chats" element={<Chat />} />
               <Route path="documents" element={<ClientDocuments />} />
               <Route path="invoices" element={<ClientInvoices />} />
               <Route path="transactions" element={<ClientTransactions />} />
@@ -79,7 +79,7 @@ function App() {
               <Route path="dashboard" element={<LawyerDashboard />} />
               <Route path="cases" element={<LawyerCases />} />
               <Route path="clients" element={<LawyerClients />} />
-              <Route path="messages" element={<LawyerMessages />} />
+              <Route path="chats" element={<Chat />} />
               <Route path="documents" element={<LawyerDocuments />} />
               <Route path="invoices" element={<LawyerInvoices />} />
               <Route path="profile" element={<LawyerProfile />} />

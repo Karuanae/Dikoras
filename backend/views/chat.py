@@ -4,7 +4,7 @@ from flask_login import login_required, current_user
 from models import db, Case, Chat, Notification
 from datetime import datetime
 
-chat_bp = Blueprint('chat', __name__)
+chat_bp = Blueprint('chat', __name__, url_prefix='/chat')
 
 @chat_bp.route('/<case_id>')
 @login_required
@@ -121,7 +121,7 @@ def api_messages(case_id):
         'is_current_user': msg.sender_id == current_user.id
     } for msg in messages])
 
-@chat_bp.route("/chat", methods=["GET"])
+@chat_bp.route("/", methods=["GET"])
 def get_messages():
     user_id = request.args.get("user_id")
     messages = Chat.query.filter_by(user_id=user_id).all() if user_id else Chat.query.all()

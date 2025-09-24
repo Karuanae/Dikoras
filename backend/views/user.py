@@ -1,12 +1,14 @@
 from flask import Flask, request, jsonify, Blueprint
 from models import db, User, LegalService
 from flask_mail import Message
-from app import app, mail
+from flask import current_app
+from flask_mail import Mail
+mail = Mail()
 
-user_bp = Blueprint("user_bp", __name__)
+user_bp = Blueprint("user_bp", __name__, url_prefix="/user")
 
 # Register user (client/lawyer)
-@user_bp.route("/users", methods=["POST"])
+@user_bp.route("/", methods=["POST"])
 def create_user():
     data = request.get_json()
 
@@ -92,10 +94,10 @@ def create_user():
             msg = Message(
                 subject=subject,
                 recipients=[email],
-                sender=app.config['MAIL_DEFAULT_SENDER'],
+                sender=current_app.config['MAIL_DEFAULT_SENDER'],
                 body=body
             )
-            mail.send(msg)        
+            mail.send(msg)
             
             # Commit after successful email
             db.session.commit()
@@ -115,7 +117,7 @@ def create_user():
         return jsonify({"error": f"Registration failed: {str(e)}"}), 400
 
 # Update user
-@user_bp.route("/users/<user_id>", methods=["PATCH"])
+@user_bp.route("/<user_id>", methods=["PATCH"])
 def update_user(user_id):  
     user = User.query.get(user_id)
 
@@ -168,7 +170,7 @@ def update_user(user_id):
         return jsonify({"error": "Failed to update user"}), 400
 
 # Get user by ID
-@user_bp.route("/users/<user_id>", methods=["GET"])
+@user_bp.route("/<user_id>", methods=["GET"])
 def fetch_user_by_id(user_id):
     user = User.query.get(user_id)
 
@@ -202,7 +204,7 @@ def fetch_user_by_id(user_id):
     return jsonify(user_data), 200
 
 # Get all users with filtering
-@user_bp.route("/users", methods=["GET"])
+@user_bp.route("/", methods=["GET"])
 def fetch_all_users():
     # Query parameters for filtering
     user_type = request.args.get('user_type')  # client, lawyer, admin
@@ -253,7 +255,7 @@ def fetch_all_users():
     return jsonify(user_list), 200
 
 # Delete user
-@user_bp.route("/users/<user_id>", methods=["DELETE"])
+@user_bp.route("/<user_id>", methods=["DELETE"])
 def delete_user(user_id):
     user = User.query.get(user_id)
 
@@ -269,7 +271,7 @@ def delete_user(user_id):
         return jsonify({"error": "Failed to delete user"}), 400
 
 # Approve lawyer
-@user_bp.route("/users/<user_id>/approve", methods=["PATCH"])
+@user_bp.route("/<user_id>/approve", methods=["PATCH"])
 def approve_lawyer(user_id):
     user = User.query.get(user_id)
 
@@ -302,7 +304,7 @@ def approve_lawyer(user_id):
         return jsonify({"error": "Failed to approve lawyer"}), 400
 
 # Reject lawyer
-@user_bp.route("/users/<user_id>/reject", methods=["PATCH"])
+@user_bp.route("/<user_id>/reject", methods=["PATCH"])
 def reject_lawyer(user_id):
     user = User.query.get(user_id)
 

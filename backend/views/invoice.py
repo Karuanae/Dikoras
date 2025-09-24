@@ -4,10 +4,10 @@ from models import db, Invoice, Transaction, Notification, User
 from datetime import datetime, date, timedelta
 from decimal import Decimal
 
-invoice_bp = Blueprint("invoice_bp", __name__)
+invoice_bp = Blueprint("invoice_bp", __name__, url_prefix="/invoice")
 
 # Get all invoices for current user
-@invoice_bp.route("/invoices", methods=["GET"])
+@invoice_bp.route("/", methods=["GET"])
 @jwt_required()
 def get_invoices():
     current_user_id = get_jwt_identity()
@@ -46,7 +46,7 @@ def get_invoices():
     return jsonify(invoice_list), 200
 
 # Get specific invoice
-@invoice_bp.route("/invoices/<invoice_id>", methods=["GET"])
+@invoice_bp.route("/<invoice_id>", methods=["GET"])
 @jwt_required()
 def get_invoice(invoice_id):
     current_user_id = get_jwt_identity()
@@ -85,7 +85,7 @@ def get_invoice(invoice_id):
     return jsonify(invoice_data), 200
 
 # Create new invoice (lawyers only)
-@invoice_bp.route("/invoices", methods=["POST"])
+@invoice_bp.route("/", methods=["POST"])
 @jwt_required()
 def create_invoice():
     current_user_id = get_jwt_identity()
@@ -135,7 +135,7 @@ def create_invoice():
         return jsonify({"error": f"Failed to create invoice: {str(e)}"}), 400
 
 # Send invoice to client
-@invoice_bp.route("/invoices/<invoice_id>/send", methods=["PATCH"])
+@invoice_bp.route("/<invoice_id>/send", methods=["PATCH"])
 @jwt_required()
 def send_invoice(invoice_id):
     current_user_id = get_jwt_identity()
@@ -172,7 +172,7 @@ def send_invoice(invoice_id):
         return jsonify({"error": "Failed to send invoice"}), 400
 
 # Pay invoice (clients only)
-@invoice_bp.route("/invoices/<invoice_id>/pay", methods=["POST"])
+@invoice_bp.route("/<invoice_id>/pay", methods=["POST"])
 @jwt_required()
 def pay_invoice(invoice_id):
     current_user_id = get_jwt_identity()
@@ -234,7 +234,7 @@ def pay_invoice(invoice_id):
         return jsonify({"error": "Payment processing failed"}), 500
 
 # Update invoice status (admin only)
-@invoice_bp.route("/invoices/<invoice_id>/status", methods=["PATCH"])
+@invoice_bp.route("/<invoice_id>/status", methods=["PATCH"])
 @jwt_required()
 def update_invoice_status(invoice_id):
     current_user_id = get_jwt_identity()

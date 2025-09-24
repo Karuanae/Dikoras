@@ -4,10 +4,10 @@ from models import db, Case, LegalService, LawyerRequest, Document, Notification
 from datetime import datetime
 from decimal import Decimal
 
-case_bp = Blueprint("case_bp", __name__)
+case_bp = Blueprint("case_bp", __name__, url_prefix="/case")
 
 # Get all cases for current user
-@case_bp.route("/cases", methods=["GET"])
+@case_bp.route("/", methods=["GET"])
 @jwt_required()
 def get_cases():
     current_user_id = get_jwt_identity()
@@ -74,7 +74,7 @@ def get_cases():
     return jsonify(case_list), 200
 
 # Get specific case
-@case_bp.route("/cases/<case_id>", methods=["GET"])
+@case_bp.route("/<case_id>", methods=["GET"])
 @jwt_required()
 def get_case(case_id):
     current_user_id = get_jwt_identity()
@@ -154,7 +154,7 @@ def get_case(case_id):
     return jsonify(case_data), 200
 
 # Create new case (clients only)
-@case_bp.route("/cases", methods=["POST"])
+@case_bp.route("/", methods=["POST"])
 @jwt_required()
 def create_case():
     current_user_id = get_jwt_identity()
@@ -224,7 +224,7 @@ def create_case():
         return jsonify({"error": f"Failed to create case: {str(e)}"}), 400
 
 # Update case status (lawyers and admins only)
-@case_bp.route("/cases/<case_id>/status", methods=["PATCH"])
+@case_bp.route("/<case_id>/status", methods=["PATCH"])
 @jwt_required()
 def update_case_status(case_id):
     current_user_id = get_jwt_identity()
@@ -273,7 +273,7 @@ def update_case_status(case_id):
         return jsonify({"error": "Failed to update case status"}), 400
 
 # Search cases
-@case_bp.route("/cases/search", methods=["GET"])
+@case_bp.route("/search", methods=["GET"])
 @jwt_required()
 def search_cases():
     current_user_id = get_jwt_identity()
@@ -314,7 +314,7 @@ def search_cases():
     return jsonify(search_results), 200
 
 # Get available cases for lawyers
-@case_bp.route("/cases/available", methods=["GET"])
+@case_bp.route("/available", methods=["GET"])
 @jwt_required()
 def get_available_cases():
     current_user_id = get_jwt_identity()
@@ -376,7 +376,7 @@ def get_available_cases():
     return jsonify(case_list), 200
 
 # Get case statistics
-@case_bp.route("/cases/stats", methods=["GET"])
+@case_bp.route("/stats", methods=["GET"])
 @jwt_required()
 def get_case_stats():
     current_user_id = get_jwt_identity()

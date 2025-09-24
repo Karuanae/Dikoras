@@ -10,275 +10,55 @@ const Footer = () => (
   </footer>
 );
 
-const services = [
-  // Legal Research
-  {
-    title: 'Legal Research & Analysis',
-    description: 'Case law summaries, precedent comparisons, regulatory research, jurisdictional analysis, and AI-assisted legal summaries.',
-    category: 'Research',
-    icon: <Search className="h-8 w-8 text-white" />,
-    pricing: 'From $150/hour',
-    deliveryTime: '2-5 business days'
-  },
-  
-  // Legal Documents & Review
-  {
-    title: 'Employment Contracts & HR Policies',
-    description: 'Employment agreements, ESOPs, HR policy development, non-compete clauses, and workplace compliance documents.',
-    category: 'Employment',
-    icon: <Users className="h-8 w-8 text-white" />,
-    pricing: 'From $300',
-    deliveryTime: '3-7 business days'
-  },
-  {
-    title: 'Terms of Service & Privacy Policies',
-    description: 'Website terms, privacy policies, refund policies, cookie policies, and GDPR compliance documentation.',
-    category: 'Business',
-    icon: <FileText className="h-8 w-8 text-white" />,
-    pricing: 'From $400',
-    deliveryTime: '2-4 business days'
-  },
-  {
-    title: 'Legal Opinions & Affidavits',
-    description: 'Professional legal opinions, affidavits, disclaimers, DMCA claims, and expert legal documentation.',
-    category: 'Litigation',
-    icon: <Scale className="h-8 w-8 text-white" />,
-    pricing: 'From $250',
-    deliveryTime: '1-3 business days'
-  },
-  {
-    title: 'Demand Letters & Legal Notices',
-    description: 'Professionally drafted demand letters, cease and desist notices, legal warnings, and debt collection letters.',
-    category: 'Litigation',
-    icon: <AlertTriangle className="h-8 w-8 text-white" />,
-    pricing: 'From $200',
-    deliveryTime: '1-2 business days'
-  },
-  
-  // General Legal Advice Categories
-  {
-    title: 'Business & Corporate Law',
-    description: 'Business formation, corporate governance, compliance, commercial transactions, and corporate restructuring.',
-    category: 'Business',
-    icon: <Building2 className="h-8 w-8 text-white" />,
-    pricing: 'From $200/hour',
-    deliveryTime: 'Same day consultation'
-  },
-  {
-    title: 'Immigration Law',
-    description: 'Visas, green cards, citizenship applications, deportation defense, asylum cases, and family reunification.',
-    category: 'Immigration',
-    icon: <Globe className="h-8 w-8 text-white" />,
-    pricing: 'From $500',
-    deliveryTime: '1-2 weeks'
-  },
-  {
-    title: 'Family Law Services',
-    description: 'Divorce proceedings, child custody, adoption, child support, spousal support, and domestic relations.',
-    category: 'Family',
-    icon: <Heart className="h-8 w-8 text-white" />,
-    pricing: 'From $250/hour',
-    deliveryTime: 'Same day consultation'
-  },
-  {
-    title: 'Intellectual Property',
-    description: 'Patent applications, trademark registration, copyright protection, IP litigation, and licensing agreements.',
-    category: 'IP',
-    icon: <Award className="h-8 w-8 text-white" />,
-    pricing: 'From $350',
-    deliveryTime: '1-3 weeks'
-  },
-  {
-    title: 'Tax Law',
-    description: 'Tax planning, IRS disputes, tax compliance, business tax strategy, and tax controversy resolution.',
-    category: 'Tax',
-    icon: <DollarSign className="h-8 w-8 text-white" />,
-    pricing: 'From $200/hour',
-    deliveryTime: '2-5 business days'
-  },
-  {
-    title: 'Labor & Employment Law',
-    description: 'Workplace disputes, discrimination claims, wage and hour issues, wrongful termination, and labor relations.',
-    category: 'Employment',
-    icon: <Briefcase className="h-8 w-8 text-white" />,
-    pricing: 'From $250/hour',
-    deliveryTime: 'Same day consultation'
-  },
-  
-  // Dispute Resolution
-  {
-    title: 'Settlement Agreements',
-    description: 'Comprehensive settlement agreement drafting, negotiation support, and dispute resolution documentation.',
-    category: 'Litigation',
-    icon: <Gavel className="h-8 w-8 text-white" />,
-    pricing: 'From $300',
-    deliveryTime: '2-4 business days'
-  },
-  {
-    title: 'Mediation & Arbitration',
-    description: 'Alternative dispute resolution services, mediation support, arbitration representation, and conflict resolution.',
-    category: 'Litigation',
-    icon: <UserCheck className="h-8 w-8 text-white" />,
-    pricing: 'From $200/hour',
-    deliveryTime: '1-2 weeks'
-  },
-  
-  // Business Contracts
-  {
-    title: 'NDAs & Confidentiality Agreements',
-    description: 'Non-disclosure agreements, confidentiality contracts, trade secret protection, and privacy agreements.',
-    category: 'Business',
-    icon: <Shield className="h-8 w-8 text-white" />,
-    pricing: 'From $200',
-    deliveryTime: '1-2 business days'
-  },
-  {
-    title: 'Partnership & Service Agreements',
-    description: 'Business partnerships, service contracts, vendor agreements, and commercial relationship documentation.',
-    category: 'Business',
-    icon: <Building2 className="h-8 w-8 text-white" />,
-    pricing: 'From $400',
-    deliveryTime: '3-5 business days'
-  },
-  {
-    title: 'Share Purchase & Stock Options',
-    description: 'Equity transactions, stock option plans, founders agreements, investment contracts, and corporate financing.',
-    category: 'Business',
-    icon: <DollarSign className="h-8 w-8 text-white" />,
-    pricing: 'From $500',
-    deliveryTime: '1-2 weeks'
-  },
-  
-  // Alternative Services
-  {
-    title: 'LLC Formation',
-    description: 'Business entity formation, state filings, operating agreements, and corporate structure setup.',
-    category: 'Business',
-    icon: <Landmark className="h-8 w-8 text-white" />,
-    pricing: 'Flat fee $299',
-    deliveryTime: '3-5 business days'
-  },
-  {
-    title: 'Will & Estate Planning',
-    description: 'Last will and testament, estate planning, trusts, probate assistance, and succession planning.',
-    category: 'Estate',
-    icon: <FileText className="h-8 w-8 text-white" />,
-    pricing: 'From $250',
-    deliveryTime: '1-2 weeks'
-  },
-  {
-    title: 'Document Review Services',
-    description: 'Contract review, legal document analysis, risk assessment, and compliance checking.',
-    category: 'Review',
-    icon: <FileText className="h-8 w-8 text-white" />,
-    pricing: 'From $100/hour',
-    deliveryTime: '1-3 business days'
-  },
-  
-  // Litigation Support
-  {
-    title: 'Court Filing & Motions',
-    description: 'Legal motion drafting, complaint preparation, court filings, and procedural document creation.',
-    category: 'Litigation',
-    icon: <Gavel className="h-8 w-8 text-white" />,
-    pricing: 'From $300',
-    deliveryTime: '2-5 business days'
-  },
-  {
-    title: 'Discovery Support',
-    description: 'Discovery management, evidence organization, deposition preparation, and litigation support services.',
-    category: 'Litigation',
-    icon: <Search className="h-8 w-8 text-white" />,
-    pricing: 'From $150/hour',
-    deliveryTime: '1-2 weeks'
-  },
-  
-  // Real Estate
-  {
-    title: 'Real Estate Transactions',
-    description: 'Property purchases, sales, lease agreements, title reviews, and real estate contract negotiations.',
-    category: 'Real Estate',
-    icon: <Home className="h-8 w-8 text-white" />,
-    pricing: 'From $400',
-    deliveryTime: '1-2 weeks'
-  },
-  {
-    title: 'Landlord-Tenant Law',
-    description: 'Rental agreements, eviction proceedings, tenant rights, property management legal support, and housing disputes.',
-    category: 'Real Estate',
-    icon: <Home className="h-8 w-8 text-white" />,
-    pricing: 'From $200/hour',
-    deliveryTime: '2-7 business days'
-  },
-  
-  // Personal Injury
-  {
-    title: 'Auto Accident Claims',
-    description: 'Car accident representation, insurance claims, personal injury litigation, and accident reconstruction analysis.',
-    category: 'Personal Injury',
-    icon: <Car className="h-8 w-8 text-white" />,
-    pricing: 'Contingency fee',
-    deliveryTime: 'Immediate consultation'
-  },
-  {
-    title: 'Medical Malpractice',
-    description: 'Medical negligence cases, hospital liability, pharmaceutical litigation, and healthcare professional misconduct.',
-    category: 'Personal Injury',
-    icon: <Heart className="h-8 w-8 text-white" />,
-    pricing: 'Contingency fee',
-    deliveryTime: 'Immediate consultation'
-  },
-  
-  // Additional comprehensive services
-  {
-    title: 'Environmental Law',
-    description: 'Environmental compliance, pollution cases, natural resource law, and environmental impact assessments.',
-    category: 'Environmental',
-    icon: <TreePine className="h-8 w-8 text-white" />,
-    pricing: 'From $250/hour',
-    deliveryTime: '1-2 weeks'
-  },
-  {
-    title: 'Energy Law',
-    description: 'Renewable energy projects, utility law, oil and gas transactions, and energy regulatory compliance.',
-    category: 'Energy',
-    icon: <Zap className="h-8 w-8 text-white" />,
-    pricing: 'From $300/hour',
-    deliveryTime: '1-3 weeks'
-  },
-];
+// Removed services array
 
 const categories = ['All', 'Business', 'Family', 'Employment', 'Immigration', 'Litigation', 'Real Estate', 'Personal Injury', 'IP', 'Tax', 'Estate', 'Review', 'Environmental', 'Energy'];
 const sortOptions = ['Name (A-Z)', 'Name (Z-A)', 'Price (Low to High)', 'Price (High to Low)', 'Delivery Time'];
+
+import { useEffect } from 'react';
+import { getLegalServices } from '../services/api';
 
 const LegalServices = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortBy, setSortBy] = useState('Name (A-Z)');
   const [showFilters, setShowFilters] = useState(false);
+  const [services, setServices] = useState([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  useEffect(() => {
+    async function fetchServices() {
+      setLoading(true);
+      try {
+        const data = await getLegalServices();
+        setServices(data);
+      } catch (err) {
+        // Handle error
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchServices();
+  }, []);
+
   const handleGetStarted = (service) => {
-    // Store the selected service in localStorage
     localStorage.setItem('selectedService', JSON.stringify(service));
-    
-    // Redirect to login page
-    navigate('/login', { 
-      state: { 
+    navigate('/login', {
+      state: {
         redirectTo: '/client/dashboard',
         service: service.title
-      } 
+      }
     });
   };
 
   const filteredAndSortedServices = useMemo(() => {
     let filtered = services.filter(service => {
       const matchesSearch = service.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           service.description.toLowerCase().includes(searchTerm.toLowerCase());
+        service.description.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory === 'All' || service.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });
-
     return filtered.sort((a, b) => {
       switch (sortBy) {
         case 'Name (A-Z)':
@@ -299,7 +79,7 @@ const LegalServices = () => {
           return 0;
       }
     });
-  }, [searchTerm, selectedCategory, sortBy]);
+  }, [services, searchTerm, selectedCategory, sortBy]);
 
   return (
     <>

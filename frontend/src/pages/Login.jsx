@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { loginUser } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
@@ -21,37 +22,31 @@ const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Admin login logic: only allow one admin (hardcoded email or check)
-    if (formData.email === 'admin@dikoras.com' && formData.password === 'adminpass') {
-      const userData = { email: formData.email, role: 'admin' };
-      login(userData, 'admin-token');
-      navigate('/admin-dashboard');
-      return;
-    }
-    // Simulate login API response for other users
-    // Try to get user from localStorage (simulate backend)
-    let userType = 'client';
-    let userData = null;
-    const pendingLawyers = JSON.parse(localStorage.getItem('pendingLawyers') || '[]');
-    const foundLawyer = pendingLawyers.find(lawyer => lawyer.email === formData.email);
-    if (foundLawyer) {
-      userType = 'lawyer';
-      userData = foundLawyer;
-    } else {
-      // Simulate client user
-      userData = { email: formData.email, role: 'client', status: 'approved' };
-    }
-    login(userData, 'fake-token');
-    if (userType === 'client') {
-      navigate('/client/dashboard');
-    } else if (userType === 'lawyer') {
-      if (userData.status === 'pending') {
-        navigate('/pending-approval');
+    try {
+      const { token, user } = await loginUser(formData);
+      if (token && user) {
+        login(user, token);
+        // Role-based redirection
+        if (user.role === 'admin') {
+          navigate('/admin-dashboard');
+        } else if (user.role === 'client') {
+          navigate('/client/dashboard');
+        } else if (user.role === 'lawyer') {
+          if (user.status === 'pending') {
+            navigate('/pending-approval');
+          } else {
+            navigate('/lawyer/dashboard');
+          }
+        } else {
+          navigate('/');
+        }
       } else {
-        navigate('/lawyer/dashboard');
+        alert('Login failed. Please check your credentials.');
       }
+    } catch (err) {
+      alert('Login error: ' + (err.response?.data?.message || err.message));
     }
   };
 

@@ -5,7 +5,7 @@ from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
 
-document_bp = Blueprint('document', __name__)
+document_bp = Blueprint('document', __name__, url_prefix='/document')
 
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'xls', 'xlsx'}
 
@@ -118,7 +118,7 @@ def download(document_id):
         flash('File not found.', 'error')
         return redirect(url_for('case.detail', case_id=case.id))
 
-@document_bp.route("/documents", methods=["GET"])
+@document_bp.route("/", methods=["GET"])
 def get_documents():
     case_id = request.args.get("case_id")
     query = Document.query

@@ -5,7 +5,7 @@ from datetime import datetime, date, timedelta
 from decimal import Decimal
 from decorators import lawyer_required 
 
-lawyer_bp = Blueprint('lawyer', __name__)
+lawyer_bp = Blueprint('lawyer', __name__, url_prefix='/lawyer')
 
 @lawyer_bp.route('/pending-approval', methods=['GET'])
 @jwt_required()

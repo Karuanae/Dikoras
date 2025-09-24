@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { registerLawyer } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { MapPin, Briefcase, Award, GraduationCap, Clock, DollarSign, Camera, User } from 'lucide-react';
 
@@ -99,41 +100,44 @@ const LawyerRegistration = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-
     try {
-      // Simulate API call for lawyer registration
-      // In a real application, this would send data to your backend
       const lawyerData = {
         ...formData,
         role: 'lawyer',
-        status: 'pending', // Awaiting admin approval
+        status: 'pending',
         rating: 0,
         reviews: 0,
-        // Convert image to base64 for storage (in a real app, you'd upload to cloud storage)
         profileImage: imagePreview || null
       };
-
-      // Remove the actual file object before storing
-      delete lawyerData.profileImageFile;
-
-      // Store in localStorage (simulating backend storage)
-      const pendingLawyers = JSON.parse(localStorage.getItem('pendingLawyers') || '[]');
-      pendingLawyers.push(lawyerData);
-      localStorage.setItem('pendingLawyers', JSON.stringify(pendingLawyers));
-
-      // Show success message
-      alert('Your application has been submitted for admin approval. You will be redirected to the Pending Approval page.');
-
-      // Redirect to pending approval page
-      navigate('/pending-approval', {
-        state: {
-          message: 'Your lawyer application is pending admin approval. You will be notified once verified.'
-        }
-      });
-
+      // Call backend API to register lawyer
+      const response = await registerLawyer(lawyerData);
+      // Treat any 201 or success response as successful registration
+      if ((response && response.status === 201) || (response && response.success)) {
+        alert('Your application has been submitted for admin approval. You will be redirected to the Pending Approval page.');
+        setTimeout(() => {
+          navigate('/pending-approval', {
+            state: {
+              message: 'Your lawyer application is pending admin approval. You will be notified once verified.'
+            }
+          });
+        }, 1500);
+      } else {
+        alert('There was an error submitting your application. Please try again.');
+      }
     } catch (error) {
-      console.error('Registration error:', error);
-      alert('There was an error submitting your application. Please try again.');
+      if (error.response && error.response.status === 201) {
+        alert('Your application has been submitted for admin approval. You will be redirected to the Pending Approval page.');
+        setTimeout(() => {
+          navigate('/pending-approval', {
+            state: {
+              message: 'Your lawyer application is pending admin approval. You will be notified once verified.'
+            }
+          });
+        }, 1500);
+      } else {
+        console.error('Registration error:', error);
+        alert('There was an error submitting your application. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }

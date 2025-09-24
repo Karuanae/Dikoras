@@ -18,7 +18,25 @@ migrate = Migrate(app, db)
 db.init_app(app)
 
 # Flask CORS
-CORS(app)
+CORS(app, 
+     origins=[
+         "http://localhost:5173",    # Vite dev server (localhost)
+         "http://127.0.0.1:5173",    # Vite dev server (127.0.0.1)
+         "http://localhost:3000",    # React dev server
+         "http://127.0.0.1:3000",    # React dev server (alternative)
+     ],
+     methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+     allow_headers=[
+         "Content-Type", 
+         "Authorization", 
+         "X-Requested-With",
+         "Accept",
+         "Origin"
+     ],
+     supports_credentials=True,
+     expose_headers=["Content-Type", "Authorization"]
+)
+
 
 # Secret keys
 app.config['SECRET_KEY'] = 'dev-secret-key-change-in-production'
@@ -53,15 +71,31 @@ def load_user(user_id):
     return User.query.get(user_id)
 
 # Register Blueprints (updated for consistency)
-from views import auth_bp, admin_bp, client_bp, lawyer_bp, main_bp, chat_bp, document_bp, user_bp
-app.register_blueprint(auth_bp)
-app.register_blueprint(admin_bp)
-app.register_blueprint(client_bp)
-app.register_blueprint(lawyer_bp)
-app.register_blueprint(main_bp)
-app.register_blueprint(chat_bp)
-app.register_blueprint(document_bp)
-app.register_blueprint(user_bp)
+from views.auth import auth_bp
+from views.admin import admin_bp
+from views.client import client_bp
+from views.lawyer import lawyer_bp
+from views.main import main_bp
+from views.chat import chat_bp
+from views.document import document_bp
+from views.user import user_bp
+from views.case import case_bp
+from views.invoice import invoice_bp
+from views.transaction import transaction_bp
+from views.notification import notification_bp
+
+app.register_blueprint(auth_bp, url_prefix='/auth')
+app.register_blueprint(admin_bp, url_prefix='/admin')
+app.register_blueprint(client_bp, url_prefix='/client')
+app.register_blueprint(lawyer_bp, url_prefix='/lawyer')
+app.register_blueprint(main_bp, url_prefix='/main')
+app.register_blueprint(chat_bp, url_prefix='/chat')
+app.register_blueprint(document_bp, url_prefix='/document')
+app.register_blueprint(user_bp, url_prefix='/user')
+app.register_blueprint(case_bp, url_prefix='/case')
+app.register_blueprint(invoice_bp, url_prefix='/invoice')
+app.register_blueprint(transaction_bp, url_prefix='/transaction')
+app.register_blueprint(notification_bp, url_prefix='/notification')
 
 # JWT token blocklist callback
 @jwt.token_in_blocklist_loader

@@ -6,10 +6,10 @@ from werkzeug.security import generate_password_hash
 from datetime import datetime
 from decimal import Decimal
 
-client_bp = Blueprint("client_bp", __name__)
+client_bp = Blueprint("client_bp", __name__, url_prefix="/client")
 
 # Get client dashboard stats
-@client_bp.route("/client/dashboard", methods=["GET"])
+@client_bp.route("/dashboard", methods=["GET"])
 @jwt_required()
 def get_dashboard():
     current_user_id = get_jwt_identity()
@@ -75,7 +75,7 @@ def get_dashboard():
     return jsonify(dashboard_data), 200
 
 # Get client profile
-@client_bp.route("/client/profile", methods=["GET"])
+@client_bp.route("/profile", methods=["GET"])
 @jwt_required()
 def get_profile():
     current_user_id = get_jwt_identity()
@@ -106,7 +106,7 @@ def get_profile():
     return jsonify(profile_data), 200
 
 # Update client profile
-@client_bp.route("/client/profile", methods=["PATCH"])
+@client_bp.route("/profile", methods=["PATCH"])
 @jwt_required()
 def update_profile():
     current_user_id = get_jwt_identity()
@@ -130,7 +130,7 @@ def update_profile():
         return jsonify({"error": "Failed to update profile"}), 400
 
 # Get client cases
-@client_bp.route("/client/cases", methods=["GET"])
+@client_bp.route("/cases", methods=["GET"])
 @jwt_required()
 def get_client_cases():
     current_user_id = get_jwt_identity()
@@ -176,7 +176,7 @@ def get_client_cases():
     return jsonify(cases_data), 200
 
 # Get specific case details
-@client_bp.route("/client/cases/<case_id>", methods=["GET"])
+@client_bp.route("/cases/<case_id>", methods=["GET"])
 @jwt_required()
 def get_case_detail(case_id):
     current_user_id = get_jwt_identity()
@@ -267,7 +267,7 @@ def get_case_detail(case_id):
     return jsonify(case_data), 200
 
 # Accept lawyer request
-@client_bp.route("/client/lawyer-requests/<request_id>/accept", methods=["POST"])
+@client_bp.route("/lawyer-requests/<request_id>/accept", methods=["POST"])
 @jwt_required()
 def accept_lawyer_request(request_id):
     current_user_id = get_jwt_identity()
@@ -336,7 +336,7 @@ def accept_lawyer_request(request_id):
         return jsonify({"error": "Failed to accept request"}), 400
 
 # Reject lawyer request
-@client_bp.route("/client/lawyer-requests/<request_id>/reject", methods=["POST"])
+@client_bp.route("/lawyer-requests/<request_id>/reject", methods=["POST"])
 @jwt_required()
 def reject_lawyer_request(request_id):
     current_user_id = get_jwt_identity()
@@ -375,7 +375,7 @@ def reject_lawyer_request(request_id):
         return jsonify({"error": "Failed to reject request"}), 400
 
 # Get pending lawyer requests
-@client_bp.route("/client/lawyer-requests", methods=["GET"])
+@client_bp.route("/lawyer-requests", methods=["GET"])
 @jwt_required()
 def get_lawyer_requests():
     current_user_id = get_jwt_identity()
@@ -410,7 +410,7 @@ def get_lawyer_requests():
     return jsonify(requests_data), 200
 
 # Get client statistics
-@client_bp.route("/client/stats", methods=["GET"])
+@client_bp.route("/stats", methods=["GET"])
 @jwt_required()
 def get_client_stats():
     current_user_id = get_jwt_identity()

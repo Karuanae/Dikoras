@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { registerUser } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 const Register = () => {
@@ -27,21 +28,33 @@ const Register = () => {
 
   const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    // Prevent admin registration by email or role
-    if (
-      formData.email.trim().toLowerCase() === 'admin@dikoras.com' ||
-      formData.role === 'admin'
-    ) {
-      setError('Admin registration is not allowed.');
+    if (!formData.agreeToTerms) {
+      setError('You must agree to the terms and conditions.');
       return;
     }
-    // Simulate registration API response
-    const userData = { email: formData.email, role: 'client' }; // Default to client role
-    login(userData, 'fake-token');
-    navigate('/client/dashboard');
+    try {
+      const userRes = await registerUser(formData);
+      // If registration returns 201, treat as success
+      if (userRes && (userRes.access_token && userRes.user)) {
+        // ...existing code for auto-login...
+      } else if (userRes && userRes.status === 201) {
+        setError('Registration successful! Please log in.');
+        setTimeout(() => navigate('/login'), 1500);
+      } else {
+        setError('Registration failed. Please check your details.');
+      }
+    } catch (err) {
+      // Axios returns response object on error, so check status
+      if (err.response && err.response.status === 201) {
+        setError('Registration successful! Please log in.');
+        setTimeout(() => navigate('/login'), 1500);
+      } else {
+        setError('Registration error: ' + (err.response?.data?.message || err.message));
+      }
+    }
   };
 
   const handleGoogleSignIn = () => {

@@ -2,10 +2,10 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models import db, Notification, User
 
-notification_bp = Blueprint("notification_bp", __name__)
+notification_bp = Blueprint("notification_bp", __name__, url_prefix="/notification")
 
 # Get all notifications for current user
-@notification_bp.route("/notifications", methods=["GET"])
+@notification_bp.route("/", methods=["GET"])
 @jwt_required()
 def get_notifications():
     current_user_id = get_jwt_identity()
@@ -42,7 +42,7 @@ def get_notifications():
     return jsonify(notification_list), 200
 
 # Get unread notification count
-@notification_bp.route("/notifications/unread-count", methods=["GET"])
+@notification_bp.route("/unread-count", methods=["GET"])
 @jwt_required()
 def get_unread_count():
     current_user_id = get_jwt_identity()
@@ -55,7 +55,7 @@ def get_unread_count():
     return jsonify({"count": count}), 200
 
 # Mark notification as read
-@notification_bp.route("/notifications/<notification_id>/read", methods=["PATCH"])
+@notification_bp.route("/<notification_id>/read", methods=["PATCH"])
 @jwt_required()
 def mark_as_read(notification_id):
     current_user_id = get_jwt_identity()
@@ -78,7 +78,7 @@ def mark_as_read(notification_id):
         return jsonify({"error": "Failed to mark as read"}), 400
 
 # Mark all notifications as read
-@notification_bp.route("/notifications/mark-all-read", methods=["PATCH"])
+@notification_bp.route("/mark-all-read", methods=["PATCH"])
 @jwt_required()
 def mark_all_as_read():
     current_user_id = get_jwt_identity()
@@ -104,7 +104,7 @@ def mark_all_as_read():
         return jsonify({"error": "Failed to mark notifications as read"}), 400
 
 # Create notification (admin/system use)
-@notification_bp.route("/notifications", methods=["POST"])
+@notification_bp.route("/", methods=["POST"])
 @jwt_required()
 def create_notification():
     current_user_id = get_jwt_identity()
@@ -151,7 +151,7 @@ def create_notification():
         return jsonify({"error": f"Failed to create notification: {str(e)}"}), 400
 
 # Delete notification
-@notification_bp.route("/notifications/<notification_id>", methods=["DELETE"])
+@notification_bp.route("/<notification_id>", methods=["DELETE"])
 @jwt_required()
 def delete_notification(notification_id):
     current_user_id = get_jwt_identity()
@@ -174,7 +174,7 @@ def delete_notification(notification_id):
         return jsonify({"error": "Failed to delete notification"}), 400
 
 # Get notification by ID
-@notification_bp.route("/notifications/<notification_id>", methods=["GET"])
+@notification_bp.route("/<notification_id>", methods=["GET"])
 @jwt_required()
 def get_notification(notification_id):
     current_user_id = get_jwt_identity()

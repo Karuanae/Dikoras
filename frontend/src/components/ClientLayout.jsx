@@ -4,7 +4,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 const sidebarLinks = [
   { name: 'Dashboard', path: '/client/dashboard', component: 'Dashboard' },
   { name: 'My Cases', path: '/client/cases', component: 'Cases' },
-  { name: 'Messages', path: '/client/messages', component: 'Messages' },
+  { name: 'Chats', path: '/client/chats', component: 'Chats' },
   { name: 'Documents', path: '/client/documents', component: 'Documents' },
   { name: 'Invoices', path: '/client/invoices', component: 'Invoices' },
   { name: 'Transactions', path: '/client/transactions', component: 'Transactions' },

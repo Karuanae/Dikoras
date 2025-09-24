@@ -1,26 +1,27 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
-from flask_login import login_required, current_user
+from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from models import (db, User, Case, LegalService, Transaction, 
                    Invoice, Document, Notification, ActivityLog, LawyerRequest, Chat)
-import functools
 from datetime import datetime, timedelta
 from sqlalchemy import func, desc
 from functools import wraps
 
-admin_bp = Blueprint('admin', __name__)
+admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
 def admin_required(f):
     """Decorator to ensure only admins can access these routes"""
     @wraps(f)
+    @jwt_required()
     def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or current_user.user_type != 'admin':
-            flash('Access denied. Admin privileges required.', 'error')
-            return redirect(url_for('main.home'))
+        current_user_id = get_jwt_identity()
+        user = User.query.get(current_user_id)
+        
+        if not user or user.user_type != 'admin':
+            return jsonify({'error': 'Access denied. Admin privileges required.'}), 403
         return f(*args, **kwargs)
     return decorated_function
 
-@admin_bp.route('/dashboard')
-@login_required
+@admin_bp.route('/dashboard', methods=['GET'])
 @admin_required
 def dashboard():
     """Admin dashboard with overview statistics"""
@@ -30,34 +31,42 @@ def dashboard():
     total_lawyers = User.query.filter_by(user_type='lawyer').count()
     pending_lawyers = User.query.filter_by(user_type='lawyer', approval_status='pending').count()
     approved_lawyers = User.query.filter_by(user_type='lawyer', approval_status='approved').count()
+    rejected_lawyers = User.query.filter_by(user_type='lawyer', approval_status='rejected').count()
     
     # Case statistics
     total_cases = Case.query.count()
     open_cases = Case.query.filter_by(status='open').count()
     active_cases = Case.query.filter(Case.status.in_(['assigned', 'in_progress'])).count()
     resolved_cases = Case.query.filter_by(status='resolved').count()
+    closed_cases = Case.query.filter_by(status='closed').count()
     
     # Financial statistics
     total_transactions = Transaction.query.count()
     completed_transactions = Transaction.query.filter_by(status='completed').count()
+    pending_transactions = Transaction.query.filter_by(status='pending').count()
+    failed_transactions = Transaction.query.filter_by(status='failed').count()
+    
     total_revenue = db.session.query(func.sum(Transaction.amount)).filter(
         Transaction.status == 'completed'
     ).scalar() or 0
     
+    total_invoices = Invoice.query.count()
     pending_invoices = Invoice.query.filter_by(status='sent').count()
     paid_invoices = Invoice.query.filter_by(status='paid').count()
+    overdue_invoices = Invoice.query.filter_by(status='overdue').count()
+    draft_invoices = Invoice.query.filter_by(status='draft').count()
     
     # Recent activities
-    recent_cases = Case.query.order_by(desc(Case.created_at)).limit(5).all()
-    recent_transactions = Transaction.query.order_by(desc(Transaction.created_at)).limit(5).all()
-    recent_activities = ActivityLog.query.order_by(desc(ActivityLog.created_at)).limit(10).all()
+    recent_cases = Case.query.order_by(desc(Case.created_at)).limit(10).all()
+    recent_transactions = Transaction.query.order_by(desc(Transaction.created_at)).limit(10).all()
+    recent_users = User.query.order_by(desc(User.created_at)).limit(10).all()
+    recent_activities = ActivityLog.query.order_by(desc(ActivityLog.created_at)).limit(15).all()
     
-    # Monthly statistics for charts
+    # Monthly statistics for charts (last 6 months)
     current_month = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    monthly_cases = []
-    monthly_revenue = []
+    monthly_stats = []
     
-    for i in range(6):  # Last 6 months
+    for i in range(6):
         month_start = current_month - timedelta(days=30*i)
         month_end = month_start + timedelta(days=30)
         
@@ -72,222 +81,384 @@ def dashboard():
             Transaction.status == 'completed'
         ).scalar() or 0
         
-        monthly_cases.append({
-            'month': month_start.strftime('%B'),
-            'count': cases_count
-        })
+        users_count = User.query.filter(
+            User.created_at >= month_start,
+            User.created_at < month_end
+        ).count()
         
-        monthly_revenue.append({
-            'month': month_start.strftime('%B'),
-            'amount': float(revenue)
+        monthly_stats.append({
+            'month': month_start.strftime('%Y-%m'),
+            'month_name': month_start.strftime('%B %Y'),
+            'cases': cases_count,
+            'revenue': float(revenue),
+            'users': users_count
         })
     
-    return render_template('admin/dashboard.html',
-                         total_users=total_users,
-                         total_clients=total_clients,
-                         total_lawyers=total_lawyers,
-                         pending_lawyers=pending_lawyers,
-                         approved_lawyers=approved_lawyers,
-                         total_cases=total_cases,
-                         open_cases=open_cases,
-                         active_cases=active_cases,
-                         resolved_cases=resolved_cases,
-                         total_transactions=total_transactions,
-                         completed_transactions=completed_transactions,
-                         total_revenue=total_revenue,
-                         pending_invoices=pending_invoices,
-                         paid_invoices=paid_invoices,
-                         recent_cases=recent_cases,
-                         recent_transactions=recent_transactions,
-                         recent_activities=recent_activities,
-                         monthly_cases=monthly_cases[::-1],  # Reverse for chronological order
-                         monthly_revenue=monthly_revenue[::-1])
+    dashboard_data = {
+        'user_stats': {
+            'total_users': total_users,
+            'total_clients': total_clients,
+            'total_lawyers': total_lawyers,
+            'pending_lawyers': pending_lawyers,
+            'approved_lawyers': approved_lawyers,
+            'rejected_lawyers': rejected_lawyers
+        },
+        'case_stats': {
+            'total_cases': total_cases,
+            'open_cases': open_cases,
+            'active_cases': active_cases,
+            'resolved_cases': resolved_cases,
+            'closed_cases': closed_cases
+        },
+        'financial_stats': {
+            'total_transactions': total_transactions,
+            'completed_transactions': completed_transactions,
+            'pending_transactions': pending_transactions,
+            'failed_transactions': failed_transactions,
+            'total_revenue': float(total_revenue),
+            'total_invoices': total_invoices,
+            'pending_invoices': pending_invoices,
+            'paid_invoices': paid_invoices,
+            'overdue_invoices': overdue_invoices,
+            'draft_invoices': draft_invoices
+        },
+        'recent_activity': {
+            'recent_cases': [{
+                'id': case.id,
+                'case_number': case.case_number,
+                'title': case.title,
+                'status': case.status,
+                'priority': case.priority,
+                'client_name': case.client.get_full_name(),
+                'lawyer_name': case.lawyer.get_full_name() if case.lawyer else None,
+                'created_at': case.created_at.isoformat()
+            } for case in recent_cases],
+            'recent_transactions': [{
+                'id': t.id,
+                'transaction_number': t.transaction_number,
+                'amount': float(t.amount),
+                'status': t.status,
+                'transaction_type': t.transaction_type,
+                'client_name': t.client.get_full_name() if t.client else None,
+                'lawyer_name': t.lawyer.get_full_name() if t.lawyer else None,
+                'created_at': t.created_at.isoformat()
+            } for t in recent_transactions],
+            'recent_users': [{
+                'id': user.id,
+                'username': user.username,
+                'full_name': user.get_full_name(),
+                'user_type': user.user_type,
+                'approval_status': user.approval_status,
+                'is_active': user.is_active,
+                'created_at': user.created_at.isoformat()
+            } for user in recent_users],
+            'recent_activities': [{
+                'id': log.id,
+                'user_name': log.user.get_full_name(),
+                'action': log.action,
+                'description': log.description,
+                'created_at': log.created_at.isoformat()
+            } for log in recent_activities]
+        },
+        'monthly_stats': list(reversed(monthly_stats))  # Most recent first
+    }
+    
+    return jsonify(dashboard_data), 200
 
-@admin_bp.route('/lawyers')
-@login_required
+@admin_bp.route('/lawyers', methods=['GET'])
 @admin_required
 def lawyers():
-    """Manage lawyers"""
+    """Get all lawyers with filtering and pagination"""
     page = request.args.get('page', 1, type=int)
-    status_filter = request.args.get('status')
-    search = request.args.get('search')
+    per_page = request.args.get('per_page', 15, type=int)
+    status_filter = request.args.get('status')  # pending, approved, rejected
+    search = request.args.get('search', '')
     
     query = User.query.filter_by(user_type='lawyer')
+    
     if status_filter:
         query = query.filter(User.approval_status == status_filter)
+    
     if search:
+        search_term = f"%{search}%"
         query = query.filter(
-            User.first_name.contains(search) |
-            User.last_name.contains(search) |
-            User.email.contains(search)
+            (User.first_name.ilike(search_term)) |
+            (User.last_name.ilike(search_term)) |
+            (User.email.ilike(search_term)) |
+            (User.username.ilike(search_term))
         )
-    lawyers = query.order_by(desc(User.created_at)).paginate(
-        page=page, per_page=15, error_out=False
+    
+    lawyers_pagination = query.order_by(desc(User.created_at)).paginate(
+        page=page, per_page=per_page, error_out=False
     )
     
-    return render_template('admin/lawyers.html', 
-                         lawyers=lawyers,
-                         current_status=status_filter,
-                         current_search=search)
+    lawyers_data = [{
+        'id': lawyer.id,
+        'username': lawyer.username,
+        'email': lawyer.email,
+        'first_name': lawyer.first_name,
+        'last_name': lawyer.last_name,
+        'full_name': lawyer.get_full_name(),
+        'phone': lawyer.phone,
+        'address': lawyer.address,
+        'approval_status': lawyer.approval_status,
+        'years_of_experience': lawyer.years_of_experience,
+        'education': lawyer.education,
+        'hourly_rate': float(lawyer.hourly_rate) if lawyer.hourly_rate else None,
+        'bio': lawyer.bio,
+        'specializations': lawyer.specializations.split(',') if lawyer.specializations else [],
+        'is_active': lawyer.is_active,
+        'created_at': lawyer.created_at.isoformat()
+    } for lawyer in lawyers_pagination.items]
+    
+    return jsonify({
+        'lawyers': lawyers_data,
+        'pagination': {
+            'page': lawyers_pagination.page,
+            'pages': lawyers_pagination.pages,
+            'per_page': lawyers_pagination.per_page,
+            'total': lawyers_pagination.total,
+            'has_prev': lawyers_pagination.has_prev,
+            'has_next': lawyers_pagination.has_next,
+            'prev_num': lawyers_pagination.prev_num,
+            'next_num': lawyers_pagination.next_num
+        },
+        'filters': {
+            'current_status': status_filter,
+            'current_search': search
+        }
+    }), 200
 
-@admin_bp.route('/lawyers/<lawyer_id>')
-@login_required
+@admin_bp.route('/lawyers/<int:lawyer_id>', methods=['GET'])
 @admin_required
 def lawyer_detail(lawyer_id):
-    """View lawyer details"""
-    lawyer = User.query.filter_by(id=lawyer_id, user_type='lawyer').first_or_404()
+    """Get detailed lawyer information"""
+    lawyer = User.query.filter_by(id=lawyer_id, user_type='lawyer').first()
     
-    # Get lawyer's cases
-    lawyer_cases = Case.query.filter_by(lawyer_id=lawyer.user_id).order_by(
-        desc(Case.created_at)
-    ).limit(10).all()
+    if not lawyer:
+        return jsonify({'error': 'Lawyer not found'}), 404
     
-    # Get lawyer's earnings
+    # Get lawyer's cases (Fixed: use lawyer.id instead of lawyer.user_id)
+    lawyer_cases = Case.query.filter_by(lawyer_id=lawyer.id).order_by(desc(Case.created_at)).all()
+    
+    # Get lawyer's earnings (Fixed: use lawyer.id instead of lawyer.user_id)
     total_earnings = db.session.query(func.sum(Transaction.amount)).filter(
-        Transaction.lawyer_id == lawyer.user_id,
+        Transaction.lawyer_id == lawyer.id,
         Transaction.status == 'completed'
     ).scalar() or 0
     
-    return render_template('admin/lawyer_detail.html', 
-                         lawyer=lawyer,
-                         cases=lawyer_cases,
-                         total_earnings=total_earnings)
+    # Get case statistics
+    case_stats = {
+        'total_cases': len(lawyer_cases),
+        'open_cases': len([c for c in lawyer_cases if c.status == 'open']),
+        'assigned_cases': len([c for c in lawyer_cases if c.status == 'assigned']),
+        'in_progress_cases': len([c for c in lawyer_cases if c.status == 'in_progress']),
+        'resolved_cases': len([c for c in lawyer_cases if c.status == 'resolved']),
+        'closed_cases': len([c for c in lawyer_cases if c.status == 'closed'])
+    }
+    
+    lawyer_data = {
+        'id': lawyer.id,
+        'username': lawyer.username,
+        'email': lawyer.email,
+        'first_name': lawyer.first_name,
+        'last_name': lawyer.last_name,
+        'full_name': lawyer.get_full_name(),
+        'phone': lawyer.phone,
+        'address': lawyer.address,
+        'approval_status': lawyer.approval_status,
+        'years_of_experience': lawyer.years_of_experience,
+        'education': lawyer.education,
+        'hourly_rate': float(lawyer.hourly_rate) if lawyer.hourly_rate else None,
+        'bio': lawyer.bio,
+        'specializations': lawyer.specializations.split(',') if lawyer.specializations else [],
+        'is_active': lawyer.is_active,
+        'created_at': lawyer.created_at.isoformat(),
+        'total_earnings': float(total_earnings),
+        'case_stats': case_stats,
+        'recent_cases': [{
+            'id': case.id,
+            'case_number': case.case_number,
+            'title': case.title,
+            'status': case.status,
+            'priority': case.priority,
+            'client_name': case.client.get_full_name(),
+            'created_at': case.created_at.isoformat(),
+            'budget': float(case.budget) if case.budget else None
+        } for case in lawyer_cases[:10]]  # Last 10 cases
+    }
+    
+    return jsonify(lawyer_data), 200
 
-@admin_bp.route('/lawyers/<lawyer_id>/approve', methods=['POST'])
-@login_required
+@admin_bp.route('/lawyers/<int:lawyer_id>/approve', methods=['POST'])
 @admin_required
 def approve_lawyer(lawyer_id):
     """Approve lawyer registration"""
-    lawyer = User.query.filter_by(id=lawyer_id, user_type='lawyer').first_or_404()
+    current_user_id = get_jwt_identity()
+    lawyer = User.query.filter_by(id=lawyer_id, user_type='lawyer').first()
+    
+    if not lawyer:
+        return jsonify({'error': 'Lawyer not found'}), 404
     
     if lawyer.approval_status != 'pending':
-        flash('This lawyer has already been processed.', 'warning')
-        return redirect(url_for('admin.lawyer_detail', lawyer_id=lawyer_id))
+        return jsonify({'error': 'This lawyer has already been processed'}), 400
     
     try:
         lawyer.approval_status = 'approved'
-        lawyer.approved_by_id = current_user.id
-        lawyer.approved_at = datetime.utcnow()
-        lawyer.rejection_reason = None
         
-        # Create notification for lawyer
+        # Create notification for lawyer (Fixed: use lawyer.id instead of lawyer.user_id)
         notification = Notification(
-            recipient_id=lawyer.user_id,
+            recipient_id=lawyer.id,
             notification_type='lawyer_approved',
             title='Account Approved',
             message='Congratulations! Your lawyer account has been approved and you can now access the platform.'
         )
         db.session.add(notification)
         
-        # Log activity
+        # Log activity (Fixed: removed non-existent fields)
         activity = ActivityLog(
-            user_id=current_user.id,
-            action='approve',
-            model_name='LawyerProfile',
-            object_id=lawyer_id,
-            description=f'Approved lawyer registration for {lawyer.user.get_full_name()}',
+            user_id=current_user_id,
+            action='update',
+            description=f'Approved lawyer registration for {lawyer.get_full_name()}',
             ip_address=request.remote_addr,
             user_agent=request.user_agent.string
         )
         db.session.add(activity)
         
         db.session.commit()
-        flash('Lawyer approved successfully!', 'success')
+        
+        return jsonify({
+            'success': 'Lawyer approved successfully',
+            'lawyer_id': lawyer_id,
+            'approval_status': lawyer.approval_status
+        }), 200
         
     except Exception as e:
         db.session.rollback()
-        flash('Error approving lawyer. Please try again.', 'error')
-    
-    return redirect(url_for('admin.lawyer_detail', lawyer_id=lawyer_id))
+        return jsonify({'error': f'Failed to approve lawyer: {str(e)}'}), 400
 
-@admin_bp.route('/lawyers/<lawyer_id>/reject', methods=['POST'])
-@login_required
+@admin_bp.route('/lawyers/<int:lawyer_id>/reject', methods=['POST'])
 @admin_required
 def reject_lawyer(lawyer_id):
     """Reject lawyer registration"""
-    lawyer = User.query.filter_by(id=lawyer_id, user_type='lawyer').first_or_404()
+    current_user_id = get_jwt_identity()
+    lawyer = User.query.filter_by(id=lawyer_id, user_type='lawyer').first()
+    
+    if not lawyer:
+        return jsonify({'error': 'Lawyer not found'}), 404
     
     if lawyer.approval_status != 'pending':
-        flash('This lawyer has already been processed.', 'warning')
-        return redirect(url_for('admin.lawyer_detail', lawyer_id=lawyer_id))
+        return jsonify({'error': 'This lawyer has already been processed'}), 400
     
-    data = request.get_json()
-    rejection_reason = data.get('rejection_reason')
-    if not rejection_reason:
-        return jsonify({'error': 'Please provide a rejection reason.'}), 400
+    data = request.get_json() or {}
+    rejection_reason = data.get('rejection_reason', 'Application did not meet our requirements')
     
     try:
         lawyer.approval_status = 'rejected'
-        lawyer.rejection_reason = rejection_reason
-        lawyer.approved_by_id = current_user.id
-        lawyer.approved_at = datetime.utcnow()
         
-        # Create notification for lawyer
+        # Create notification for lawyer (Fixed: use lawyer.id instead of lawyer.user_id)
         notification = Notification(
-            recipient_id=lawyer.user_id,
-            notification_type='lawyer_approved',  # Use same type but different message
-            title='Account Rejected',
-            message=f'Your lawyer account registration has been rejected. Reason: {rejection_reason}'
+            recipient_id=lawyer.id,
+            notification_type='lawyer_rejected',
+            title='Account Application Rejected',
+            message=f'Your lawyer account application has been rejected. Reason: {rejection_reason}'
         )
         db.session.add(notification)
         
-        # Log activity
+        # Log activity (Fixed: removed non-existent fields)
         activity = ActivityLog(
-            user_id=current_user.id,
-            action='reject',
-            model_name='LawyerProfile',
-            object_id=lawyer_id,
-            description=f'Rejected lawyer registration for {lawyer.user.get_full_name()}',
+            user_id=current_user_id,
+            action='update',
+            description=f'Rejected lawyer registration for {lawyer.get_full_name()} - Reason: {rejection_reason}',
             ip_address=request.remote_addr,
             user_agent=request.user_agent.string
         )
         db.session.add(activity)
         
         db.session.commit()
-        flash('Lawyer rejected.', 'info')
+        
+        return jsonify({
+            'success': 'Lawyer rejected successfully',
+            'lawyer_id': lawyer_id,
+            'approval_status': lawyer.approval_status,
+            'rejection_reason': rejection_reason
+        }), 200
         
     except Exception as e:
         db.session.rollback()
-        flash('Error rejecting lawyer. Please try again.', 'error')
-    
-    return redirect(url_for('admin.lawyer_detail', lawyer_id=lawyer_id))
+        return jsonify({'error': f'Failed to reject lawyer: {str(e)}'}), 400
 
-@admin_bp.route('/clients')
-@login_required
+@admin_bp.route('/clients', methods=['GET'])
 @admin_required
 def clients():
-    """Manage clients"""
+    """Get all clients with filtering and pagination"""
     page = request.args.get('page', 1, type=int)
-    search = request.args.get('search')
+    per_page = request.args.get('per_page', 15, type=int)
+    search = request.args.get('search', '')
+    is_active = request.args.get('is_active')
     
     query = User.query.filter_by(user_type='client')
     
     if search:
+        search_term = f"%{search}%"
         query = query.filter(
-            User.first_name.contains(search) |
-            User.last_name.contains(search) |
-            User.email.contains(search)
+            (User.first_name.ilike(search_term)) |
+            (User.last_name.ilike(search_term)) |
+            (User.email.ilike(search_term)) |
+            (User.username.ilike(search_term))
         )
     
-    clients = query.order_by(desc(User.created_at)).paginate(
-        page=page, per_page=15, error_out=False
+    if is_active is not None:
+        active_status = is_active.lower() == 'true'
+        query = query.filter(User.is_active == active_status)
+    
+    clients_pagination = query.order_by(desc(User.created_at)).paginate(
+        page=page, per_page=per_page, error_out=False
     )
     
-    return render_template('admin/clients.html', 
-                         clients=clients,
-                         current_search=search)
+    clients_data = [{
+        'id': client.id,
+        'username': client.username,
+        'email': client.email,
+        'first_name': client.first_name,
+        'last_name': client.last_name,
+        'full_name': client.get_full_name(),
+        'phone': client.phone,
+        'address': client.address,
+        'is_active': client.is_active,
+        'approval_status': client.approval_status,
+        'created_at': client.created_at.isoformat()
+    } for client in clients_pagination.items]
+    
+    return jsonify({
+        'clients': clients_data,
+        'pagination': {
+            'page': clients_pagination.page,
+            'pages': clients_pagination.pages,
+            'per_page': clients_pagination.per_page,
+            'total': clients_pagination.total,
+            'has_prev': clients_pagination.has_prev,
+            'has_next': clients_pagination.has_next,
+            'prev_num': clients_pagination.prev_num,
+            'next_num': clients_pagination.next_num
+        },
+        'filters': {
+            'current_search': search,
+            'is_active': is_active
+        }
+    }), 200
 
-@admin_bp.route('/clients/<client_id>')
-@login_required
+@admin_bp.route('/clients/<int:client_id>', methods=['GET'])
 @admin_required
 def client_detail(client_id):
-    """View client details"""
-    client = User.query.filter_by(id=client_id, user_type='client').first_or_404()
+    """Get detailed client information"""
+    client = User.query.filter_by(id=client_id, user_type='client').first()
+    
+    if not client:
+        return jsonify({'error': 'Client not found'}), 404
     
     # Get client's cases
-    client_cases = Case.query.filter_by(client_id=client_id).order_by(
-        desc(Case.created_at)
-    ).limit(10).all()
+    client_cases = Case.query.filter_by(client_id=client_id).order_by(desc(Case.created_at)).all()
     
     # Get client's spending
     total_spent = db.session.query(func.sum(Transaction.amount)).filter(
@@ -295,78 +466,229 @@ def client_detail(client_id):
         Transaction.status == 'completed'
     ).scalar() or 0
     
-    return render_template('admin/client_detail.html', 
-                         client=client,
-                         cases=client_cases,
-                         total_spent=total_spent)
+    # Get case statistics
+    case_stats = {
+        'total_cases': len(client_cases),
+        'open_cases': len([c for c in client_cases if c.status == 'open']),
+        'assigned_cases': len([c for c in client_cases if c.status == 'assigned']),
+        'in_progress_cases': len([c for c in client_cases if c.status == 'in_progress']),
+        'resolved_cases': len([c for c in client_cases if c.status == 'resolved']),
+        'closed_cases': len([c for c in client_cases if c.status == 'closed'])
+    }
+    
+    client_data = {
+        'id': client.id,
+        'username': client.username,
+        'email': client.email,
+        'first_name': client.first_name,
+        'last_name': client.last_name,
+        'full_name': client.get_full_name(),
+        'phone': client.phone,
+        'address': client.address,
+        'is_active': client.is_active,
+        'approval_status': client.approval_status,
+        'created_at': client.created_at.isoformat(),
+        'total_spent': float(total_spent),
+        'case_stats': case_stats,
+        'recent_cases': [{
+            'id': case.id,
+            'case_number': case.case_number,
+            'title': case.title,
+            'status': case.status,
+            'priority': case.priority,
+            'lawyer_name': case.lawyer.get_full_name() if case.lawyer else None,
+            'created_at': case.created_at.isoformat(),
+            'budget': float(case.budget) if case.budget else None
+        } for case in client_cases[:10]]  # Last 10 cases
+    }
+    
+    return jsonify(client_data), 200
 
-@admin_bp.route('/cases')
-@login_required
+@admin_bp.route('/cases', methods=['GET'])
 @admin_required
 def cases():
-    """Manage all cases"""
+    """Get all cases with filtering and pagination"""
     page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 15, type=int)
     status_filter = request.args.get('status')
-    service_filter = request.args.get('service')
-    search = request.args.get('search')
+    priority_filter = request.args.get('priority')
+    service_filter = request.args.get('service_id', type=int)
+    search = request.args.get('search', '')
     
     query = Case.query.join(User, Case.client_id == User.id)
     
     if status_filter:
         query = query.filter(Case.status == status_filter)
     
+    if priority_filter:
+        query = query.filter(Case.priority == priority_filter)
+    
     if service_filter:
         query = query.filter(Case.legal_service_id == service_filter)
     
     if search:
+        search_term = f"%{search}%"
         query = query.filter(
-            Case.title.contains(search) |
-            Case.case_number.contains(search) |
-            User.first_name.contains(search) |
-            User.last_name.contains(search)
+            (Case.title.ilike(search_term)) |
+            (Case.case_number.ilike(search_term)) |
+            (Case.description.ilike(search_term)) |
+            (User.first_name.ilike(search_term)) |
+            (User.last_name.ilike(search_term))
         )
     
-    cases = query.order_by(desc(Case.created_at)).paginate(
-        page=page, per_page=15, error_out=False
+    cases_pagination = query.order_by(desc(Case.created_at)).paginate(
+        page=page, per_page=per_page, error_out=False
     )
     
+    # Get legal services for filters
     services = LegalService.query.filter_by(is_active=True).all()
     
-    return render_template('admin/cases.html', 
-                         cases=cases,
-                         services=services,
-                         current_status=status_filter,
-                         current_service=service_filter,
-                         current_search=search)
+    cases_data = [{
+        'id': case.id,
+        'case_number': case.case_number,
+        'title': case.title,
+        'description': case.description,
+        'status': case.status,
+        'priority': case.priority,
+        'budget': float(case.budget) if case.budget else None,
+        'deadline': case.deadline.isoformat() if case.deadline else None,
+        'client': {
+            'id': case.client.id,
+            'name': case.client.get_full_name(),
+            'email': case.client.email
+        },
+        'lawyer': {
+            'id': case.lawyer.id,
+            'name': case.lawyer.get_full_name(),
+            'email': case.lawyer.email
+        } if case.lawyer else None,
+        'legal_service': {
+            'id': case.legal_service.id,
+            'name': case.legal_service.name
+        } if case.legal_service else None,
+        'created_at': case.created_at.isoformat(),
+        'updated_at': case.updated_at.isoformat(),
+        'assigned_at': case.assigned_at.isoformat() if case.assigned_at else None,
+        'resolved_at': case.resolved_at.isoformat() if case.resolved_at else None
+    } for case in cases_pagination.items]
+    
+    return jsonify({
+        'cases': cases_data,
+        'pagination': {
+            'page': cases_pagination.page,
+            'pages': cases_pagination.pages,
+            'per_page': cases_pagination.per_page,
+            'total': cases_pagination.total,
+            'has_prev': cases_pagination.has_prev,
+            'has_next': cases_pagination.has_next,
+            'prev_num': cases_pagination.prev_num,
+            'next_num': cases_pagination.next_num
+        },
+        'filters': {
+            'current_status': status_filter,
+            'current_priority': priority_filter,
+            'current_service': service_filter,
+            'current_search': search
+        },
+        'services': [{
+            'id': s.id,
+            'name': s.name
+        } for s in services]
+    }), 200
 
-@admin_bp.route('/cases/<case_id>')
-@login_required
+@admin_bp.route('/cases/<int:case_id>', methods=['GET'])
 @admin_required
 def case_detail(case_id):
-    """View case details"""
-    case = Case.query.get_or_404(case_id)
+    """Get detailed case information"""
+    case = Case.query.get(case_id)
     
-    # Get all related data
+    if not case:
+        return jsonify({'error': 'Case not found'}), 404
+    
+    # Get related data
     documents = Document.query.filter_by(case_id=case_id).all()
     transactions = Transaction.query.filter_by(case_id=case_id).all()
     invoices = Invoice.query.filter_by(case_id=case_id).all()
     lawyer_requests = LawyerRequest.query.filter_by(case_id=case_id).all()
-    messages = Chat.query.filter_by(case_id=case_id).count()
+    messages_count = Chat.query.filter_by(case_id=case_id).count()
     
-    return render_template('admin/case_detail.html',
-                         case=case,
-                         documents=documents,
-                         transactions=transactions,
-                         invoices=invoices,
-                         lawyer_requests=lawyer_requests,
-                         message_count=messages)
+    case_data = {
+        'id': case.id,
+        'case_number': case.case_number,
+        'title': case.title,
+        'description': case.description,
+        'status': case.status,
+        'priority': case.priority,
+        'budget': float(case.budget) if case.budget else None,
+        'deadline': case.deadline.isoformat() if case.deadline else None,
+        'client': {
+            'id': case.client.id,
+            'name': case.client.get_full_name(),
+            'email': case.client.email,
+            'phone': case.client.phone
+        },
+        'lawyer': {
+            'id': case.lawyer.id,
+            'name': case.lawyer.get_full_name(),
+            'email': case.lawyer.email,
+            'phone': case.lawyer.phone
+        } if case.lawyer else None,
+        'legal_service': {
+            'id': case.legal_service.id,
+            'name': case.legal_service.name,
+            'description': case.legal_service.description
+        } if case.legal_service else None,
+        'created_at': case.created_at.isoformat(),
+        'updated_at': case.updated_at.isoformat(),
+        'assigned_at': case.assigned_at.isoformat() if case.assigned_at else None,
+        'resolved_at': case.resolved_at.isoformat() if case.resolved_at else None,
+        'documents': [{
+            'id': doc.id,
+            'title': doc.title,
+            'document_type': doc.document_type,
+            'file_path': doc.file_path,
+            'is_confidential': doc.is_confidential,
+            'uploaded_by': doc.uploaded_by.get_full_name(),
+            'created_at': doc.created_at.isoformat()
+        } for doc in documents],
+        'transactions': [{
+            'id': t.id,
+            'transaction_number': t.transaction_number,
+            'amount': float(t.amount),
+            'status': t.status,
+            'transaction_type': t.transaction_type,
+            'description': t.description,
+            'payment_method': t.payment_method,
+            'created_at': t.created_at.isoformat()
+        } for t in transactions],
+        'invoices': [{
+            'id': inv.id,
+            'invoice_number': inv.invoice_number,
+            'amount': float(inv.amount),
+            'total_amount': float(inv.total_amount),
+            'status': inv.status,
+            'issue_date': inv.issue_date.isoformat(),
+            'due_date': inv.due_date.isoformat()
+        } for inv in invoices],
+        'lawyer_requests': [{
+            'id': req.id,
+            'lawyer_name': req.lawyer.get_full_name(),
+            'message': req.message,
+            'proposed_fee': float(req.proposed_fee) if req.proposed_fee else None,
+            'status': req.status,
+            'created_at': req.created_at.isoformat()
+        } for req in lawyer_requests],
+        'messages_count': messages_count
+    }
+    
+    return jsonify(case_data), 200
 
-@admin_bp.route('/transactions')
-@login_required
+@admin_bp.route('/transactions', methods=['GET'])
 @admin_required
 def transactions():
-    """Manage all transactions"""
+    """Get all transactions with filtering and pagination"""
     page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
     status_filter = request.args.get('status')
     type_filter = request.args.get('type')
     
@@ -378,83 +700,175 @@ def transactions():
     if type_filter:
         query = query.filter(Transaction.transaction_type == type_filter)
     
-    transactions = query.order_by(desc(Transaction.created_at)).paginate(
-        page=page, per_page=20, error_out=False
+    transactions_pagination = query.order_by(desc(Transaction.created_at)).paginate(
+        page=page, per_page=per_page, error_out=False
     )
     
-    return render_template('admin/transactions.html', 
-                         transactions=transactions,
-                         current_status=status_filter,
-                         current_type=type_filter)
+    transactions_data = [{
+        'id': t.id,
+        'transaction_number': t.transaction_number,
+        'amount': float(t.amount),
+        'status': t.status,
+        'transaction_type': t.transaction_type,
+        'description': t.description,
+        'payment_method': t.payment_method,
+        'payment_reference': t.payment_reference,
+        'case': {
+            'id': t.case.id,
+            'case_number': t.case.case_number,
+            'title': t.case.title
+        } if t.case else None,
+        'client': {
+            'id': t.client.id,
+            'name': t.client.get_full_name()
+        } if t.client else None,
+        'lawyer': {
+            'id': t.lawyer.id,
+            'name': t.lawyer.get_full_name()
+        } if t.lawyer else None,
+        'created_at': t.created_at.isoformat(),
+        'completed_at': t.completed_at.isoformat() if t.completed_at else None
+    } for t in transactions_pagination.items]
+    
+    return jsonify({
+        'transactions': transactions_data,
+        'pagination': {
+            'page': transactions_pagination.page,
+            'pages': transactions_pagination.pages,
+            'per_page': transactions_pagination.per_page,
+            'total': transactions_pagination.total,
+            'has_prev': transactions_pagination.has_prev,
+            'has_next': transactions_pagination.has_next,
+            'prev_num': transactions_pagination.prev_num,
+            'next_num': transactions_pagination.next_num
+        },
+        'filters': {
+            'current_status': status_filter,
+            'current_type': type_filter
+        }
+    }), 200
 
-@admin_bp.route('/legal-services')
-@login_required
+@admin_bp.route('/legal-services', methods=['GET'])
 @admin_required
 def legal_services():
-    """Manage legal services"""
+    """Get all legal services"""
     services = LegalService.query.order_by(LegalService.name).all()
-    return render_template('admin/legal_services.html', services=services)
+    
+    services_data = [{
+        'id': service.id,
+        'name': service.name,
+        'description': service.description,
+        'icon': service.icon,
+        'is_active': service.is_active,
+        'created_at': service.created_at.isoformat(),
+        'cases_count': Case.query.filter_by(legal_service_id=service.id).count()
+    } for service in services]
+    
+    return jsonify({'legal_services': services_data}), 200
 
-@admin_bp.route('/legal-services/create', methods=['GET', 'POST'])
-@login_required
+@admin_bp.route('/legal-services', methods=['POST'])
 @admin_required
 def create_legal_service():
     """Create new legal service"""
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
-            service = LegalService(
-                name=data.get('name'),
-                description=data.get('description'),
-                icon=data.get('icon'),
-                is_active=data.get('is_active', True)
-            )
-
-            db.session.add(service)
-            db.session.commit()
-
-            return jsonify({'message': 'Legal service created successfully!', 'service_id': service.id}), 201
-
-        except Exception as e:
-            db.session.rollback()
-            return jsonify({'error': 'Error creating service. Please try again.'}), 400
+    current_user_id = get_jwt_identity()
+    data = request.get_json()
     
-    return render_template('admin/create_legal_service.html')
+    if not data or not data.get('name') or not data.get('description'):
+        return jsonify({'error': 'Name and description are required'}), 400
+    
+    try:
+        service = LegalService(
+            name=data.get('name'),
+            description=data.get('description'),
+            icon=data.get('icon', ''),
+            is_active=data.get('is_active', True)
+        )
+        
+        db.session.add(service)
+        
+        # Log activity
+        activity = ActivityLog(
+            user_id=current_user_id,
+            action='create',
+            description=f'Created legal service: {service.name}',
+            ip_address=request.remote_addr,
+            user_agent=request.user_agent.string
+        )
+        db.session.add(activity)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': 'Legal service created successfully',
+            'service': {
+                'id': service.id,
+                'name': service.name,
+                'description': service.description,
+                'icon': service.icon,
+                'is_active': service.is_active
+            }
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to create legal service: {str(e)}'}), 400
 
-@admin_bp.route('/legal-services/<service_id>/edit', methods=['GET', 'POST'])
-@login_required
+@admin_bp.route('/legal-services/<int:service_id>', methods=['PUT'])
 @admin_required
 def edit_legal_service(service_id):
-    """Edit legal service"""
-    service = LegalService.query.get_or_404(service_id)
+    """Update legal service"""
+    current_user_id = get_jwt_identity()
+    service = LegalService.query.get(service_id)
     
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
-            service.name = data.get('name')
-            service.description = data.get('description')
-            service.icon = data.get('icon')
-            service.is_active = bool(data.get('is_active', True))
-            
-            db.session.commit()
-            flash('Legal service updated successfully!', 'success')
-            return redirect(url_for('admin.legal_services'))
-            
-        except Exception as e:
-            db.session.rollback()
-            flash('Error updating service. Please try again.', 'error')
+    if not service:
+        return jsonify({'error': 'Legal service not found'}), 404
     
-    return render_template('admin/edit_legal_service.html', service=service)
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'Request data is required'}), 400
+    
+    try:
+        service.name = data.get('name', service.name)
+        service.description = data.get('description', service.description)
+        service.icon = data.get('icon', service.icon)
+        service.is_active = data.get('is_active', service.is_active)
+        
+        # Log activity
+        activity = ActivityLog(
+            user_id=current_user_id,
+            action='update',
+            description=f'Updated legal service: {service.name}',
+            ip_address=request.remote_addr,
+            user_agent=request.user_agent.string
+        )
+        db.session.add(activity)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': 'Legal service updated successfully',
+            'service': {
+                'id': service.id,
+                'name': service.name,
+                'description': service.description,
+                'icon': service.icon,
+                'is_active': service.is_active
+            }
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to update legal service: {str(e)}'}), 400
 
-
-@admin_bp.route('/activity-logs')
-@login_required
+@admin_bp.route('/activity-logs', methods=['GET'])
 @admin_required
 def activity_logs():
-    """View system activity logs"""
+    """Get activity logs with filtering and pagination"""
     page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 25, type=int)
     action_filter = request.args.get('action')
-    user_filter = request.args.get('user')
+    user_filter = request.args.get('user_id', type=int)
     
     query = ActivityLog.query.join(User)
     
@@ -464,24 +878,54 @@ def activity_logs():
     if user_filter:
         query = query.filter(ActivityLog.user_id == user_filter)
     
-    logs = query.order_by(desc(ActivityLog.created_at)).paginate(
-        page=page, per_page=25, error_out=False
+    logs_pagination = query.order_by(desc(ActivityLog.created_at)).paginate(
+        page=page, per_page=per_page, error_out=False
     )
     
+    # Get all users for filter dropdown
     users = User.query.all()
     
-    return render_template('admin/activity_logs.html', 
-                         logs=logs,
-                         users=users,
-                         current_action=action_filter,
-                         current_user=user_filter)
+    logs_data = [{
+        'id': log.id,
+        'user': {
+            'id': log.user.id,
+            'name': log.user.get_full_name(),
+            'user_type': log.user.user_type
+        },
+        'action': log.action,
+        'description': log.description,
+        'ip_address': log.ip_address,
+        'user_agent': log.user_agent,
+        'created_at': log.created_at.isoformat()
+    } for log in logs_pagination.items]
+    
+    return jsonify({
+        'logs': logs_data,
+        'pagination': {
+            'page': logs_pagination.page,
+            'pages': logs_pagination.pages,
+            'per_page': logs_pagination.per_page,
+            'total': logs_pagination.total,
+            'has_prev': logs_pagination.has_prev,
+            'has_next': logs_pagination.has_next,
+            'prev_num': logs_pagination.prev_num,
+            'next_num': logs_pagination.next_num
+        },
+        'filters': {
+            'current_action': action_filter,
+            'current_user': user_filter
+        },
+        'users': [{
+            'id': user.id,
+            'name': user.get_full_name(),
+            'user_type': user.user_type
+        } for user in users]
+    }), 200
 
-@admin_bp.route('/reports')
-@login_required
+@admin_bp.route('/reports', methods=['GET'])
 @admin_required
 def reports():
-    """Generate system reports"""
-    # Date range from request
+    """Generate system reports with date filtering"""
     date_from = request.args.get('date_from')
     date_to = request.args.get('date_to')
     
@@ -491,52 +935,127 @@ def reports():
     if not date_to:
         date_to = datetime.utcnow().strftime('%Y-%m-%d')
     
-    # Convert to datetime objects
-    start_date = datetime.strptime(date_from, '%Y-%m-%d')
-    end_date = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
+    try:
+        start_date = datetime.strptime(date_from, '%Y-%m-%d')
+        end_date = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
+    except ValueError:
+        return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
     
     # Generate report data
     report_data = {
-        'period': f"{date_from} to {date_to}",
-        'new_users': User.query.filter(
-            User.created_at >= start_date,
-            User.created_at < end_date
-        ).count(),
-        'new_cases': Case.query.filter(
-            Case.created_at >= start_date,
-            Case.created_at < end_date
-        ).count(),
-        'completed_transactions': Transaction.query.filter(
-            Transaction.created_at >= start_date,
-            Transaction.created_at < end_date,
-            Transaction.status == 'completed'
-        ).count(),
-        'total_revenue': db.session.query(func.sum(Transaction.amount)).filter(
-            Transaction.created_at >= start_date,
-            Transaction.created_at < end_date,
-            Transaction.status == 'completed'
-        ).scalar() or 0,
-        'lawyer_approvals': User.query.filter(
-            User.user_type == 'lawyer',
-            User.approved_at >= start_date,
-            User.approved_at < end_date,
-            User.approval_status == 'approved'
-        ).count(),
+        'period': {
+            'from': date_from,
+            'to': date_to
+        },
+        'user_metrics': {
+            'new_users': User.query.filter(
+                User.created_at >= start_date,
+                User.created_at < end_date
+            ).count(),
+            'new_clients': User.query.filter(
+                User.created_at >= start_date,
+                User.created_at < end_date,
+                User.user_type == 'client'
+            ).count(),
+            'new_lawyers': User.query.filter(
+                User.created_at >= start_date,
+                User.created_at < end_date,
+                User.user_type == 'lawyer'
+            ).count(),
+            'approved_lawyers': User.query.filter(
+                User.created_at >= start_date,
+                User.created_at < end_date,
+                User.user_type == 'lawyer',
+                User.approval_status == 'approved'
+            ).count()
+        },
+        'case_metrics': {
+            'new_cases': Case.query.filter(
+                Case.created_at >= start_date,
+                Case.created_at < end_date
+            ).count(),
+            'resolved_cases': Case.query.filter(
+                Case.resolved_at >= start_date,
+                Case.resolved_at < end_date
+            ).count() if Case.query.filter(Case.resolved_at.isnot(None)).first() else 0
+        },
+        'financial_metrics': {
+            'completed_transactions': Transaction.query.filter(
+                Transaction.created_at >= start_date,
+                Transaction.created_at < end_date,
+                Transaction.status == 'completed'
+            ).count(),
+            'total_revenue': float(db.session.query(func.sum(Transaction.amount)).filter(
+                Transaction.created_at >= start_date,
+                Transaction.created_at < end_date,
+                Transaction.status == 'completed'
+            ).scalar() or 0),
+            'invoices_generated': Invoice.query.filter(
+                Invoice.issue_date >= start_date.date(),
+                Invoice.issue_date < end_date.date()
+            ).count(),
+            'invoices_paid': Invoice.query.filter(
+                Invoice.paid_date >= start_date.date(),
+                Invoice.paid_date < end_date.date()
+            ).count() if Invoice.query.filter(Invoice.paid_date.isnot(None)).first() else 0
+        }
     }
     
-    return render_template('admin/reports.html', 
-                         report_data=report_data,
-                         date_from=date_from,
-                         date_to=date_to)
+    return jsonify(report_data), 200
 
-@admin_bp.route('/api/dashboard-stats')
-@login_required
+@admin_bp.route('/users/<int:user_id>/toggle-active', methods=['POST'])
+@admin_required
+def toggle_user_active_status(user_id):
+    """Toggle user active status"""
+    current_user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    try:
+        user.is_active = not user.is_active
+        status = 'activated' if user.is_active else 'deactivated'
+        
+        # Create notification for user
+        notification = Notification(
+            recipient_id=user.id,
+            notification_type='account_status_changed',
+            title=f'Account {status.title()}',
+            message=f'Your account has been {status} by an administrator.'
+        )
+        db.session.add(notification)
+        
+        # Log activity
+        activity = ActivityLog(
+            user_id=current_user_id,
+            action='update',
+            description=f'{status.title()} user account: {user.get_full_name()}',
+            ip_address=request.remote_addr,
+            user_agent=request.user_agent.string
+        )
+        db.session.add(activity)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': f'User {status} successfully',
+            'user_id': user_id,
+            'is_active': user.is_active
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to update user status: {str(e)}'}), 400
+
+# Legacy API endpoints (kept for backwards compatibility)
+@admin_bp.route('/api/dashboard-stats', methods=['GET'])
 @admin_required
 def api_dashboard_stats():
-    """API endpoint for dashboard statistics"""
+    """API endpoint for dashboard statistics (legacy)"""
     stats = {
         'total_users': User.query.count(),
-    'pending_lawyers': User.query.filter_by(user_type='lawyer', approval_status='pending').count(),
+        'pending_lawyers': User.query.filter_by(user_type='lawyer', approval_status='pending').count(),
         'total_cases': Case.query.count(),
         'open_cases': Case.query.filter_by(status='open').count(),
         'total_revenue': float(db.session.query(func.sum(Transaction.amount)).filter(
@@ -545,106 +1064,4 @@ def api_dashboard_stats():
         'pending_invoices': Invoice.query.filter_by(status='sent').count()
     }
     
-    return jsonify(stats)
-
-@admin_bp.route("/lawyers", methods=["GET"])
-def get_lawyers():
-    lawyers = User.query.filter_by(user_type="lawyer").all()
-    return jsonify([{
-        "id": l.id,
-        "first_name": l.first_name,
-        "last_name": l.last_name,
-        "email": l.email,
-        "approval_status": getattr(l, "approval_status", None),
-        "star_ratings": getattr(l, "star_ratings", None),
-        "years_of_experience": getattr(l, "years_of_experience", None),
-        "education": getattr(l, "education", None),
-        "hourly_rate": getattr(l, "hourly_rate", None),
-        "profile_picture": getattr(l, "profile_picture", None),
-        "description": getattr(l, "description", None)
-    } for l in lawyers]), 200
-
-
-
-@admin_bp.route("/clients", methods=["GET"])
-def get_clients():
-    clients = User.query.filter_by(user_type="client").all()
-    return jsonify([{
-        "id": c.id,
-        "first_name": c.first_name,
-        "last_name": c.last_name,
-        "email": c.email,
-        "is_active": getattr(c, "is_active", None)
-    } for c in clients]), 200
-
-@admin_bp.route("/cases", methods=["GET"])
-def get_cases():
-    cases = Case.query.all()
-    return jsonify([{
-        "id": case.id,
-        "title": case.title,
-        "status": case.status,
-        "client_id": case.client_id,
-        "lawyer_id": case.lawyer_id,
-        "priority": case.priority,
-        "created_at": case.created_at
-    } for case in cases]), 200
-
-@admin_bp.route("/legal-services", methods=["GET"])
-def get_legal_services():
-    services = LegalService.query.all()
-    return jsonify([{
-        "id": s.id,
-        "name": s.name,
-        "description": s.description,
-        "icon": s.icon,
-        "is_active": s.is_active
-    } for s in services]), 200
-
-@admin_bp.route("/transactions", methods=["GET"])
-def get_transactions():
-    transactions = Transaction.query.all()
-    return jsonify([{
-        "id": t.id,
-        "amount": float(t.amount),
-        "status": t.status,
-        "case_id": t.case_id,
-        "lawyer_id": t.lawyer_id,
-        "client_id": t.client_id,
-        "created_at": t.created_at
-    } for t in transactions]), 200
-
-@admin_bp.route("/invoices", methods=["GET"])
-def get_invoices():
-    invoices = Invoice.query.all()
-    return jsonify([{
-        "id": i.id,
-        "amount": float(i.amount),
-        "status": i.status,
-        "case_id": i.case_id,
-        "lawyer_id": i.lawyer_id,
-        "client_id": i.client_id,
-        "issue_date": i.issue_date
-    } for i in invoices]), 200
-
-@admin_bp.route("/notifications", methods=["GET"])
-def get_notifications():
-    notifications = Notification.query.all()
-    return jsonify([{
-        "id": n.id,
-        "title": n.title,
-        "message": n.message,
-        "recipient_id": n.recipient_id,
-        "is_read": n.is_read,
-        "created_at": n.created_at
-    } for n in notifications]), 200
-
-@admin_bp.route("/activity-logs", methods=["GET"])
-def get_activity_logs():
-    logs = ActivityLog.query.all()
-    return jsonify([{
-        "id": log.id,
-        "user_id": log.user_id,
-        "action": log.action,
-        "timestamp": log.timestamp
-    } for log in logs]), 200
+    return jsonify(stats), 200

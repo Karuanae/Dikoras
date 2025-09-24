@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from models import db, LegalService, User
 from datetime import datetime
 
-main_bp = Blueprint('main', __name__)
+main_bp = Blueprint('main', __name__, url_prefix='/main')
 
 @main_bp.route("/", methods=["GET"])
 def api_home():

@@ -4,10 +4,10 @@ from models import db, Transaction, User
 from datetime import datetime
 from decimal import Decimal
 
-transaction_bp = Blueprint("transaction_bp", __name__)
+transaction_bp = Blueprint("transaction_bp", __name__, url_prefix="/transaction")
 
 # Get all transactions for current user
-@transaction_bp.route("/transactions", methods=["GET"])
+@transaction_bp.route("/", methods=["GET"])
 @jwt_required()
 def get_transactions():
     current_user_id = get_jwt_identity()
@@ -73,7 +73,7 @@ def get_transactions():
     return jsonify(transaction_list), 200
 
 # Get specific transaction
-@transaction_bp.route("/transactions/<transaction_id>", methods=["GET"])
+@transaction_bp.route("/<transaction_id>", methods=["GET"])
 @jwt_required()
 def get_transaction(transaction_id):
     current_user_id = get_jwt_identity()
@@ -127,7 +127,7 @@ def get_transaction(transaction_id):
     return jsonify(transaction_data), 200
 
 # Create new transaction (admin only)
-@transaction_bp.route("/transactions", methods=["POST"])
+@transaction_bp.route("/", methods=["POST"])
 @jwt_required()
 def create_transaction():
     current_user_id = get_jwt_identity()
@@ -185,7 +185,7 @@ def create_transaction():
         return jsonify({"error": f"Failed to create transaction: {str(e)}"}), 400
 
 # Update transaction status (admin only)
-@transaction_bp.route("/transactions/<transaction_id>/status", methods=["PATCH"])
+@transaction_bp.route("/<transaction_id>/status", methods=["PATCH"])
 @jwt_required()
 def update_transaction_status(transaction_id):
     current_user_id = get_jwt_identity()
@@ -221,7 +221,7 @@ def update_transaction_status(transaction_id):
         return jsonify({"error": "Failed to update status"}), 400
 
 # Get transaction statistics
-@transaction_bp.route("/transactions/stats", methods=["GET"])
+@transaction_bp.route("/stats", methods=["GET"])
 @jwt_required()
 def get_transaction_stats():
     current_user_id = get_jwt_identity()
@@ -269,7 +269,7 @@ def get_transaction_stats():
     return jsonify(stats), 200
 
 # Search transactions
-@transaction_bp.route("/transactions/search", methods=["GET"])
+@transaction_bp.route("/search", methods=["GET"])
 @jwt_required()
 def search_transactions():
     current_user_id = get_jwt_identity()

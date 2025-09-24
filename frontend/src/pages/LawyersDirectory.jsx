@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { getLawyers } from '../services/api';
 import { Search, Filter, MapPin, Star, Clock, Award, GraduationCap, Briefcase, Phone, Mail, Calendar, DollarSign } from 'lucide-react';
 
 const Footer = () => (
@@ -10,9 +11,7 @@ const Footer = () => (
   </footer>
 );
 
-const lawyers = [
-  // ... (lawyers array remains the same)
-];
+// ...existing code...
 
 const categories = ['All', 'Business', 'Immigration', 'IP', 'Family', 'Real Estate', 'Criminal', 'Tax', 'Employment', 'Estate', 'Personal Injury'];
 const sortOptions = ['Name (A-Z)', 'Name (Z-A)', 'Rating (High to Low)', 'Rating (Low to High)', 'Experience (High to Low)', 'Experience (Low to High)', 'Hourly Rate (Low to High)', 'Hourly Rate (High to Low)'];
@@ -24,12 +23,24 @@ const LawyersDirectory = () => {
   const [selectedExperience, setSelectedExperience] = useState('All');
   const [sortBy, setSortBy] = useState('Rating (High to Low)');
   const [showFilters, setShowFilters] = useState(false);
+  const [lawyers, setLawyers] = useState([]);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    async function fetchLawyers() {
+      try {
+        const data = await getLawyers();
+        setLawyers(data);
+      } catch (err) {
+        // Handle error (show notification, etc.)
+      }
+    }
+    fetchLawyers();
+  }, []);
 
   const handleContactLawyer = (lawyer) => {
     // Store the selected lawyer in localStorage
     localStorage.setItem('selectedLawyer', JSON.stringify(lawyer));
-    
     // Redirect to login page
     navigate('/login', { 
       state: { 
