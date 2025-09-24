@@ -35,7 +35,7 @@ class User(db.Model, UserMixin):
     # Relationships
     client_cases = db.relationship('Case', foreign_keys='Case.client_id', backref='client')
     lawyer_cases = db.relationship('Case', foreign_keys='Case.lawyer_id', backref='lawyer')
-    chats = db.relationship('Chat', backref='sender')
+    messages = db.relationship('Message', backref='sender')
     notifications = db.relationship('Notification', backref='recipient')
     documents = db.relationship('Document', backref='uploaded_by')
     transactions_as_client = db.relationship('Transaction', foreign_keys='Transaction.client_id', backref='client')
@@ -96,11 +96,11 @@ class Case(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     assigned_at = db.Column(db.DateTime)
-    resolved_at = db.Column(db.DateTime)
+    resolved_at = db.Coclumn(db.DateTime)
     
     # Relationships
     lawyer_requests = db.relationship('LawyerRequest', backref='case', cascade='all, delete-orphan')
-    chats = db.relationship('Chat', backref='case', cascade='all, delete-orphan')
+    messages = db.relationship('Message', backref='case', cascade='all, delete-orphan')
     documents = db.relationship('Document', backref='case', cascade='all, delete-orphan')
     transactions = db.relationship('Transaction', backref='case', cascade='all, delete-orphan')
     invoices = db.relationship('Invoice', backref='case', cascade='all, delete-orphan')
@@ -132,8 +132,9 @@ class LawyerRequest(db.Model):
     def __repr__(self):
         return f"<LawyerRequest by {self.lawyer.get_full_name()} for {self.case.case_number}>"
 
-class Chat(db.Model):
-    __tablename__ = 'chats'
+class Message(db.Model):
+    __tablename__ = 'messages'
+    
     id = db.Column(db.Integer, primary_key=True)
     case_id = db.Column(db.Integer, db.ForeignKey('cases.id'), nullable=False)
     sender_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -141,8 +142,9 @@ class Chat(db.Model):
     attachment = db.Column(db.String(255))
     is_read = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
     def __repr__(self):
-        return f"<Chat from {self.sender.get_full_name()} in {self.case.case_number}>"
+        return f"<Message from {self.sender.get_full_name()} in {self.case.case_number}>"
 
 class Document(db.Model):
     __tablename__ = 'documents'
@@ -159,7 +161,6 @@ class Document(db.Model):
     
     def __repr__(self):
         return f"<Document {self.title} - {self.case.case_number}>"
-
 
 class Transaction(db.Model):
     __tablename__ = 'transactions'

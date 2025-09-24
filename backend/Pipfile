@@ -6,13 +6,13 @@ name = "pypi"
 [packages]
 email-validator = "*"
 sqlalchemy = "*"
+flask-sqlalchemy = "*"
 flask = "*"
 flask-jwt-extended = "*"
 python-dotenv = "*"
 flask-wtf = "*"
 flask-login = "*"
 flask-migrate = "*"
-flask-sqlalchemy = "*"
 
 [dev-packages]
 
