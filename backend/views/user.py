@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify, Blueprint
 from models import db, User, LegalService
-from werkzeug.security import generate_password_hash
 from flask_mail import Message
 from app import app, mail
 
@@ -64,7 +63,6 @@ def create_user():
         new_user = User(
             username=username, 
             email=email, 
-            password_hash=generate_password_hash(password),
             first_name=first_name,
             last_name=last_name,
             user_type=user_type,
@@ -74,9 +72,12 @@ def create_user():
             education=education,
             hourly_rate=float(hourly_rate) if hourly_rate else None,
             bio=bio,
-            specializations=','.join(map(str, specializations)) if specializations else None,
-            approval_status='pending' if user_type == 'lawyer' else 'approved'
+            specializations=','.join(map(str, specializations)) if specializations else None
+            # approval_status will be automatically set by the model's __init__ method based on user_type
         )
+        
+        # Set password using model method for consistency
+        new_user.set_password(password)
         
         db.session.add(new_user)
 

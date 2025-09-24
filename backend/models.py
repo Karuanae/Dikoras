@@ -2,7 +2,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from datetime import datetime, date
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import MetaData
+from sqlalchemy import MetaData, CheckConstraint
 import random
 import string
 
@@ -27,10 +27,32 @@ class User(db.Model, UserMixin):
     # Lawyer-specific fields (nullable for clients/admins)
     years_of_experience = db.Column(db.Integer)
     education = db.Column(db.Text)
-    approval_status = db.Column(db.String(20), default='pending')  # 'pending', 'approved', 'rejected'
+    approval_status = db.Column(db.String(20), nullable=False)  # 'pending', 'approved', 'rejected'
     hourly_rate = db.Column(db.Numeric(10, 2))
     bio = db.Column(db.Text)
     specializations = db.Column(db.String(500))  # Store as comma-separated IDs
+    
+    def __init__(self, **kwargs):
+        # Set approval_status based on business logic if not explicitly provided
+        if 'approval_status' not in kwargs and 'user_type' in kwargs:
+            kwargs['approval_status'] = 'pending' if kwargs['user_type'] == 'lawyer' else 'approved'
+        elif 'approval_status' not in kwargs:
+            # Fallback default if user_type is also not provided
+            kwargs['approval_status'] = 'pending'
+        
+        super(User, self).__init__(**kwargs)
+    
+    # Add constraints for data integrity
+    __table_args__ = (
+        CheckConstraint(
+            "user_type IN ('client', 'lawyer', 'admin')",
+            name='valid_user_type'
+        ),
+        CheckConstraint(
+            "approval_status IN ('pending', 'approved', 'rejected')",
+            name='valid_approval_status'
+        ),
+    )
     
     # Relationships
     client_cases = db.relationship('Case', foreign_keys='Case.client_id', backref='client')
@@ -98,6 +120,18 @@ class Case(db.Model):
     assigned_at = db.Column(db.DateTime)
     resolved_at = db.Column(db.DateTime)
     
+    # Add constraints for case priority and status
+    __table_args__ = (
+        CheckConstraint(
+            "priority IN ('low', 'medium', 'high', 'urgent')",
+            name='valid_case_priority'
+        ),
+        CheckConstraint(
+            "status IN ('open', 'assigned', 'in_progress', 'resolved', 'closed')",
+            name='valid_case_status'
+        ),
+    )
+    
     # Relationships
     lawyer_requests = db.relationship('LawyerRequest', backref='case', cascade='all, delete-orphan')
     chats = db.relationship('Chat', backref='case', cascade='all, delete-orphan')
@@ -128,6 +162,14 @@ class LawyerRequest(db.Model):
     status = db.Column(db.String(20), default='pending')  # 'pending', 'accepted', 'rejected'
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     responded_at = db.Column(db.DateTime)
+    
+    # Add constraint for lawyer request status
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'accepted', 'rejected')",
+            name='valid_lawyer_request_status'
+        ),
+    )
     
     def __repr__(self):
         return f"<LawyerRequest by {self.lawyer.get_full_name()} for {self.case.case_number}>"
@@ -179,6 +221,18 @@ class Transaction(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     completed_at = db.Column(db.DateTime)
     
+    # Add constraints for transaction type and status
+    __table_args__ = (
+        CheckConstraint(
+            "transaction_type IN ('payment', 'refund', 'fee')",
+            name='valid_transaction_type'
+        ),
+        CheckConstraint(
+            "status IN ('pending', 'completed', 'failed')",
+            name='valid_transaction_status'
+        ),
+    )
+    
     def __init__(self, **kwargs):
         super(Transaction, self).__init__(**kwargs)
         if not self.transaction_number:
@@ -207,6 +261,14 @@ class Invoice(db.Model):
     due_date = db.Column(db.Date, nullable=False)
     paid_date = db.Column(db.Date)
     transaction_id = db.Column(db.Integer, db.ForeignKey('transactions.id'))
+    
+    # Add constraint for invoice status
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('draft', 'sent', 'paid', 'overdue')",
+            name='valid_invoice_status'
+        ),
+    )
     
     # Relationship
     transaction = db.relationship('Transaction', backref='invoice', uselist=False)
@@ -250,6 +312,14 @@ class ActivityLog(db.Model):
     ip_address = db.Column(db.String(45))
     user_agent = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Add constraint for action types
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('create', 'update', 'delete', 'login', 'logout')",
+            name='valid_activity_action'
+        ),
+    )
     
     # Relationship
     user = db.relationship('User', backref='activity_logs')

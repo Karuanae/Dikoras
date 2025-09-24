@@ -28,14 +28,14 @@ app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config["MAIL_USE_SSL"] = False
-app.config['MAIL_USERNAME'] = 'your-email@gmail.com'
-app.config['MAIL_PASSWORD'] = 'your-app-password'
-app.config['MAIL_DEFAULT_SENDER'] = 'noreply@legalplatform.com'
+app.config['MAIL_USERNAME'] = 'thee.manase@gmail.com'
+app.config['MAIL_PASSWORD'] = 'tpct fyni fwzb rsmv'
+app.config['MAIL_DEFAULT_SENDER'] = 'thee.manase@gmail.com'
 
 mail = Mail(app)
 
 # JWT configuration
-app.config["JWT_SECRET_KEY"] = "super-secret-jwt-key-change-in-production"
+app.config["JWT_SECRET_KEY"] = "fkmvkfksopsdpakcmvdmskasppwx"
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=24)
 app.config["JWT_VERIFY_SUB"] = False
 
