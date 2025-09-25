@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getDashboardStats, getLawyers, getCases, getClients, activateLawyer, deactivateLawyer } from '../services/api';
+import { getDashboardStats, getLawyers, getCases, getClients, activateLawyer, deactivateLawyer, assignLawyersToCase } from '../services/api';
 
 export default function AdminDashboard() {
   const [pendingLawyers, setPendingLawyers] = useState([]);
@@ -16,7 +15,7 @@ export default function AdminDashboard() {
     revenue: 12560
   });
   const [selectedCase, setSelectedCase] = useState(null);
-  const [assignLawyerId, setAssignLawyerId] = useState('');
+  const [assignLawyerIds, setAssignLawyerIds] = useState([]);
   const [activeTab, setActiveTab] = useState('overview');
   const navigate = useNavigate();
 
@@ -38,7 +37,7 @@ export default function AdminDashboard() {
   setPendingLawyers(lawyersData.filter(l => l.approval_status === 'pending'));
   setLawyerOptions(lawyersData);
         const casesData = await getCases();
-        setNewCases(casesData.filter(c => c.status === 'new'));
+        setNewCases(casesData); // Show all cases for now
         // If you have an API for recent contacts, fetch here. Otherwise, leave as empty array.
         // Example: const contactsData = await getRecentContacts(); setRecentContacts(contactsData);
         setRecentContacts([]); // TODO: Replace with API call if available
@@ -72,12 +71,16 @@ export default function AdminDashboard() {
   };
 
   const handleAssignLawyer = async () => {
-    if (selectedCase && assignLawyerId) {
-      // TODO: Call API to assign lawyer to case
-      setNewCases(newCases.filter(c => c.id !== selectedCase.id));
-      setStats({...stats, unassignedCases: stats.unassignedCases - 1});
-      setSelectedCase(null);
-      setAssignLawyerId('');
+    if (selectedCase && assignLawyerIds.length > 0) {
+      try {
+        await assignLawyersToCase(selectedCase.id, assignLawyerIds);
+        setNewCases(newCases.filter(c => c.id !== selectedCase.id));
+        setStats({...stats, unassignedCases: stats.unassignedCases - 1});
+        setSelectedCase(null);
+        setAssignLawyerIds([]);
+      } catch (err) {
+        // Handle error (show notification, etc.)
+      }
     }
   };
 
@@ -285,10 +288,10 @@ export default function AdminDashboard() {
                   {newCases.map(caseItem => (
                     <tr key={caseItem.id} className="border-b border-gray-100">
                       <td className="p-3 font-medium">{caseItem.title}</td>
-                      <td className="p-3">{caseItem.client}</td>
-                      <td className="p-3">{caseItem.type}</td>
+                      <td className="p-3">{caseItem.client ? caseItem.client.name : ''}</td>
+                      <td className="p-3">{caseItem.legal_service ? caseItem.legal_service.name : ''}</td>
                       <td className="p-3 max-w-xs truncate">{caseItem.description}</td>
-                      <td className="p-3">{caseItem.submitted}</td>
+                      <td className="p-3">{caseItem.created_at ? new Date(caseItem.created_at).toLocaleString() : ''}</td>
                       <td className="p-3">
                         <button 
                           className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-1 px-3 rounded"
@@ -309,20 +312,25 @@ export default function AdminDashboard() {
               <h3 className="font-semibold text-blue-900 mb-2">Assign Lawyer to: {selectedCase.title}</h3>
               <div className="flex items-center space-x-2">
                 <select 
-                  value={assignLawyerId} 
-                  onChange={e => setAssignLawyerId(e.target.value)}
+                  multiple
+                  value={assignLawyerIds}
+                  onChange={e => {
+                    const options = Array.from(e.target.selectedOptions, opt => opt.value);
+                    setAssignLawyerIds(options);
+                  }}
                   className="p-2 border border-gray-300 rounded"
+                  style={{ minWidth: '200px', height: '120px' }}
                 >
-                  <option value="">Select a lawyer</option>
                   {lawyerOptions.map(lawyer => (
                     <option key={lawyer.id} value={lawyer.id}>
-                      {lawyer.name} ({lawyer.specialization})
+                      {(lawyer.name || (lawyer.first_name + ' ' + lawyer.last_name)) + ' (' + (lawyer.specialization || lawyer.specializations) + ')'}
                     </option>
                   ))}
                 </select>
                 <button 
                   className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded"
                   onClick={handleAssignLawyer}
+                  disabled={assignLawyerIds.length === 0}
                 >
                   Assign
                 </button>
@@ -333,6 +341,9 @@ export default function AdminDashboard() {
                   Cancel
                 </button>
               </div>
+              {assignLawyerIds.length === 0 && (
+                <div className="text-red-500 mt-2">Please select at least one lawyer to assign.</div>
+              )}
             </div>
           )}
         </div>

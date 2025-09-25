@@ -3,6 +3,23 @@ from models import db, LegalService, User
 from datetime import datetime
 
 main_bp = Blueprint('main', __name__, url_prefix='/main')
+@main_bp.route('/api/services', methods=['POST'])
+def add_legal_service():
+    data = request.get_json()
+    required_fields = ['name', 'description', 'category', 'service_type', 'pricing_model']
+    for field in required_fields:
+        if not data.get(field):
+            return jsonify({'error': f'Missing required field: {field}'}), 400
+
+    service = LegalService(
+        name=data['name'],
+        description=data['description'],
+        icon=data.get('icon', ''),
+        is_active=data.get('is_active', True)
+    )
+    db.session.add(service)
+    db.session.commit()
+    return jsonify({'success': True, 'id': service.id}), 201
 
 @main_bp.route("/", methods=["GET"])
 def api_home():

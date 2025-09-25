@@ -56,7 +56,7 @@ import LawyerLayout from './components/LawyerLayout';
 
 import PendingApproval from './pages/PendingApproval';
 import AdminDashboard from './pages/AdminDashboard';
-import AdminAddServicePage from './pages/AdminAddService';
+import AdminAddServices from './pages/AdminAddServices';
 import FallbackRedirect from './components/FallbackRedirect';
 
 function App() {
@@ -87,7 +87,7 @@ function App() {
               {/* Admin Add Legal Service Route */}
               <Route path="/admin/services/add" element={
                 <ProtectedRoute requiredRole="admin">
-                  <AdminAddServicePage />
+                  <AdminAddServices />
                 </ProtectedRoute>
               } />
               

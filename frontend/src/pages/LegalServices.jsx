@@ -32,9 +32,9 @@ const LegalServices = () => {
       setLoading(true);
       try {
         const data = await getLegalServices();
-        setServices(data);
+        setServices(Array.isArray(data) ? data : []);
       } catch (err) {
-        // Handle error
+        setServices([]);
       } finally {
         setLoading(false);
       }
@@ -54,8 +54,10 @@ const LegalServices = () => {
 
   const filteredAndSortedServices = useMemo(() => {
     let filtered = services.filter(service => {
-      const matchesSearch = service.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        service.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const title = typeof service.title === 'string' ? service.title : '';
+      const description = typeof service.description === 'string' ? service.description : '';
+      const matchesSearch = title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        description.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory === 'All' || service.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });

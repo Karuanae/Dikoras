@@ -64,6 +64,11 @@ import axios from 'axios';
 axios.defaults.baseURL = 'http://localhost:5000';
 
 // API base paths for different roles
+// Add Legal Service (Admin)
+export async function addLegalService(data) {
+  const res = await axios.post('/main/api/services', data);
+  return res.data;
+}
 const ADMIN_BASE = '/admin';
 const USER_BASE = '/user';
 const CLIENT_BASE = '/client';
@@ -123,8 +128,8 @@ export async function deactivateLawyer(lawyerId) {
 }
 
 export async function getLawyers() {
-  // Fetch pending lawyers for admin dashboard
-  const res = await axios.get(`/user/?user_type=lawyer&approval_status=pending`);
+  // Fetch all lawyers for admin dashboard assignment
+  const res = await axios.get(`/user/?user_type=lawyer`);
   return res.data;
 }
 
@@ -135,7 +140,7 @@ export async function getClients() {
 
 export async function getCases() {
   const res = await axios.get(`${ADMIN_BASE}/cases`);
-  return res.data;
+  return res.data.cases || [];
 }
 
 // ===== USER ENDPOINTS =====
@@ -568,8 +573,9 @@ export async function sendLawyerChat(data) {
 }
 
 // Legal Service endpoints
+// Public legal services endpoint (for all users)
 export async function getLegalServices(params = {}) {
-  return axios.get(`/admin/legal-services`, { params }).then(res => res.data);
+  return axios.get(`/main/api/services`, { params }).then(res => res.data);
 }
 
 export async function createLegalService(data) {
@@ -609,3 +615,11 @@ export const clearUserData = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
 };
+
+// Assign lawyers to a case
+export async function assignLawyersToCase(caseId, lawyerIds, message = '') {
+  return axios.post(`/admin/cases/${caseId}/assign-lawyers`, {
+    lawyer_ids: lawyerIds,
+    message
+  }).then(res => res.data);
+}

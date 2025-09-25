@@ -19,25 +19,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 migrate = Migrate(app, db)
 db.init_app(app)
 
-# Flask CORS
-CORS(app, 
-     origins=[
-         "http://localhost:5173",    # Vite dev server (localhost)
-         "http://127.0.0.1:5173",    # Vite dev server (127.0.0.1)
-         "http://localhost:3000",    # React dev server
-         "http://127.0.0.1:3000",    # React dev server (alternative)
-     ],
-     methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-     allow_headers=[
-         "Content-Type", 
-         "Authorization", 
-         "X-Requested-With",
-         "Accept",
-         "Origin"
-     ],
-     supports_credentials=True,
-     expose_headers=["Content-Type", "Authorization"]
-)
+# ...existing code...
 
 
 # Secret keys
@@ -85,6 +67,7 @@ from views.invoice import invoice_bp
 from views.transaction import transaction_bp
 from views.notification import notification_bp
 
+
 app.register_blueprint(auth_bp, url_prefix='/auth')
 app.register_blueprint(admin_bp, url_prefix='/admin')
 app.register_blueprint(client_bp, url_prefix='/client')
@@ -97,6 +80,26 @@ app.register_blueprint(case_bp, url_prefix='/case')
 app.register_blueprint(invoice_bp, url_prefix='/invoice')
 app.register_blueprint(transaction_bp, url_prefix='/transaction')
 app.register_blueprint(notification_bp, url_prefix='/notification')
+
+# Move CORS initialization here, after blueprints
+CORS(app, 
+     origins=[
+         "http://localhost:5173",    # Vite dev server (localhost)
+         "http://127.0.0.1:5173",    # Vite dev server (127.0.0.1)
+         "http://localhost:3000",    # React dev server
+         "http://127.0.0.1:3000",    # React dev server (alternative)
+     ],
+     methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+     allow_headers=[
+         "Content-Type", 
+         "Authorization", 
+         "X-Requested-With",
+         "Accept",
+         "Origin"
+     ],
+     supports_credentials=True,
+     expose_headers=["Content-Type", "Authorization"]
+)
 
 # SocketIO event for typing indicator
 @socketio.on('typing')

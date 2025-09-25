@@ -15,7 +15,6 @@ def admin_required(f):
     def decorated_function(*args, **kwargs):
         current_user_id = get_jwt_identity()
         user = User.query.get(current_user_id)
-        
         if not user or user.user_type != 'admin':
             return jsonify({'error': 'Access denied. Admin privileges required.'}), 403
         return f(*args, **kwargs)
@@ -238,10 +237,10 @@ def lawyer_detail(lawyer_id):
     if not lawyer:
         return jsonify({'error': 'Lawyer not found'}), 404
     
-    # Get lawyer's cases (Fixed: use lawyer.id instead of lawyer.user_id)
+    # Get lawyer's cases
     lawyer_cases = Case.query.filter_by(lawyer_id=lawyer.id).order_by(desc(Case.created_at)).all()
     
-    # Get lawyer's earnings (Fixed: use lawyer.id instead of lawyer.user_id)
+    # Get lawyer's earnings
     total_earnings = db.session.query(func.sum(Transaction.amount)).filter(
         Transaction.lawyer_id == lawyer.id,
         Transaction.status == 'completed'
@@ -306,7 +305,7 @@ def approve_lawyer(lawyer_id):
     try:
         lawyer.approval_status = 'approved'
         
-        # Create notification for lawyer (Fixed: use lawyer.id instead of lawyer.user_id)
+        # Create notification for lawyer
         notification = Notification(
             recipient_id=lawyer.id,
             notification_type='lawyer_approved',
@@ -315,7 +314,7 @@ def approve_lawyer(lawyer_id):
         )
         db.session.add(notification)
         
-        # Log activity (Fixed: removed non-existent fields)
+        # Log activity
         activity = ActivityLog(
             user_id=current_user_id,
             action='update',
@@ -356,7 +355,7 @@ def reject_lawyer(lawyer_id):
     try:
         lawyer.approval_status = 'rejected'
         
-        # Create notification for lawyer (Fixed: use lawyer.id instead of lawyer.user_id)
+        # Create notification for lawyer
         notification = Notification(
             recipient_id=lawyer.id,
             notification_type='lawyer_rejected',
@@ -365,7 +364,7 @@ def reject_lawyer(lawyer_id):
         )
         db.session.add(notification)
         
-        # Log activity (Fixed: removed non-existent fields)
+        # Log activity
         activity = ActivityLog(
             user_id=current_user_id,
             action='update',
@@ -682,6 +681,113 @@ def case_detail(case_id):
     }
     
     return jsonify(case_data), 200
+
+@admin_bp.route('/cases/<int:case_id>/assign-lawyers', methods=['POST', 'OPTIONS'])
+def assign_lawyers_to_case(case_id):
+    """Assign one or more lawyers to a case and notify them"""
+    
+    # Handle OPTIONS request for CORS preflight
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    # For POST requests, check admin privileges
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    
+    if not user or user.user_type != 'admin':
+        return jsonify({'error': 'Access denied. Admin privileges required.'}), 403
+    
+    data = request.get_json()
+    lawyer_ids = data.get('lawyer_ids', [])
+    message = data.get('message', 'You have been assigned to a new case.')
+    
+    case = Case.query.get(case_id)
+    if not case:
+        return jsonify({'error': 'Case not found'}), 404
+    
+    assigned = []
+    errors = []
+    
+    for lawyer_id in lawyer_ids:
+        try:
+            lawyer_id = int(lawyer_id)  # Ensure it's an integer
+            lawyer = User.query.get(lawyer_id)
+            
+            if not lawyer:
+                errors.append(f"Lawyer with ID {lawyer_id} not found")
+                continue
+                
+            if lawyer.user_type != 'lawyer':
+                errors.append(f"User {lawyer_id} is not a lawyer")
+                continue
+                
+            if lawyer.approval_status != 'approved':
+                errors.append(f"Lawyer {lawyer_id} is not approved")
+                continue
+            
+            # Check if already assigned
+            existing = LawyerRequest.query.filter_by(
+                case_id=case_id, 
+                lawyer_id=lawyer_id
+            ).first()
+            
+            if existing:
+                errors.append(f"Lawyer {lawyer_id} already assigned to this case")
+                continue
+            
+            # Create LawyerRequest
+            lawyer_request = LawyerRequest(
+                case_id=case_id,
+                lawyer_id=lawyer_id,
+                message=message,
+                status='accepted'  # Set as accepted since admin is assigning
+            )
+            db.session.add(lawyer_request)
+            
+            # Also update the case to have this lawyer assigned
+            case.lawyer_id = lawyer_id
+            case.status = 'assigned'
+            case.assigned_at = datetime.utcnow()
+            
+            # Create notification for lawyer
+            notification = Notification(
+                recipient_id=lawyer_id,
+                notification_type='case_assignment',
+                title='New Case Assignment',
+                message=f'You have been assigned to case "{case.title}" by admin.',
+                related_case_id=case_id
+            )
+            db.session.add(notification)
+            
+            assigned.append({
+                'id': lawyer_id,
+                'name': lawyer.get_full_name()
+            })
+            
+        except ValueError:
+            errors.append(f"Invalid lawyer ID: {lawyer_id}")
+            continue
+        except Exception as e:
+            errors.append(f"Error assigning lawyer {lawyer_id}: {str(e)}")
+            continue
+    
+    # Commit all changes
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'error': f'Database error: {str(e)}',
+            'assigned_lawyers': [],
+            'errors': errors
+        }), 500
+    
+    return jsonify({
+        'success': True,
+        'message': f'Successfully assigned {len(assigned)} lawyer(s) to the case',
+        'assigned_lawyers': assigned,
+        'errors': errors if errors else None
+    }), 200
 
 @admin_bp.route('/transactions', methods=['GET'])
 @admin_required

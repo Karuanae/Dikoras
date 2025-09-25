@@ -18,11 +18,19 @@ const PostCase = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Fetch available legal services for dropdown
+    // Fetch available legal services for dropdown (public endpoint)
     async function fetchServices() {
       try {
-        const res = await axios.get('http://localhost:5000/client/profile');
-        setLegalServices(res.data.available_services || []);
+        const res = await axios.get('http://localhost:5000/main/api/services');
+        setLegalServices(Array.isArray(res.data) ? res.data : []);
+        // Pre-select service from localStorage if present
+        const selected = localStorage.getItem('selectedService');
+        if (selected) {
+          const selectedObj = JSON.parse(selected);
+          // Try to match by id or title
+          const found = res.data.find(s => s.id === selectedObj.id || s.title === selectedObj.title || s.name === selectedObj.title);
+          if (found) setLegalServiceId(found.id);
+        }
       } catch (err) {
         setLegalServices([]);
       }
@@ -43,6 +51,8 @@ const PostCase = () => {
         budget: budget ? parseFloat(budget) : undefined,
         deadline: deadline || undefined
       });
+      // Clear selectedService after posting
+      localStorage.removeItem('selectedService');
       navigate('/client-dashboard');
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to submit case');
@@ -59,7 +69,7 @@ const PostCase = () => {
         <select value={legalServiceId} onChange={e => setLegalServiceId(e.target.value)} required className="w-full mb-4 p-2 border rounded">
           <option value="">Select legal service</option>
           {legalServices.map(s => (
-            <option key={s.id} value={s.id}>{s.name}</option>
+            <option key={s.id} value={s.id}>{s.title || s.name}</option>
           ))}
         </select>
         <label className="block mb-2 font-semibold">Title</label>
