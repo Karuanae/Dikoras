@@ -32,12 +32,19 @@ def login():
         return jsonify({"error": "Account is deactivated. Contact support."}), 403
     
     # Check lawyer approval status
-    if user.user_type == 'lawyer' and user.approval_status != 'approved':
-        return jsonify({
-            "error": "Lawyer account pending approval",
-            "approval_status": user.approval_status,
-            "message": "Your lawyer account is pending admin approval. You'll be notified once approved."
-        }), 403
+    if user.user_type == 'lawyer':
+        if user.approval_status == 'pending':
+            return jsonify({
+                "error": "Lawyer account pending approval",
+                "approval_status": user.approval_status,
+                "message": "Your lawyer account is pending admin approval. You'll be notified once approved."
+            }), 403
+        elif user.approval_status == 'rejected':
+            return jsonify({
+                "error": "Lawyer application rejected",
+                "approval_status": user.approval_status,
+                "message": "Your lawyer application was rejected. You may update your profile and reapply."
+            }), 403
 
     # Create access token
     access_token = create_access_token(identity=user.id)

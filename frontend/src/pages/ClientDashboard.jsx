@@ -1,31 +1,51 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getCases, getMessages, updateCase } from '../services/api';
+import {
+  getClientCases,
+  getClientTransactionSummary,
+  getClientMessages,
+  updateCase,
+  getDocuments,
+  getInvoices,
+  getUserFromStorage
+} from '../services/api';
 
 // Client Dashboard Component
 export default function ClientDashboard() {
-  const [selectedService, setSelectedService] = useState(null);
   const [activeCases, setActiveCases] = useState(0);
-  const [messages, setMessages] = useState(0);
+  const [lawyersHired, setLawyersHired] = useState(0);
+  const [unreadMessages, setUnreadMessages] = useState(0);
   const [cases, setCases] = useState([]);
+  const [recentDocs, setRecentDocs] = useState([]);
+  const [recentInvoices, setRecentInvoices] = useState([]);
+  const [summary, setSummary] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     async function fetchData() {
       try {
-        // Fetch cases from API
-        const casesData = await getCases();
-        setCases(casesData);
-        setActiveCases(casesData.filter(caseItem => caseItem.status === 'active').length);
-        // Fetch messages from API (assuming clientId is available)
-        // Replace 'clientId' with actual client id from auth context if available
-        const clientId = null; // TODO: get from auth context
-        if (clientId) {
-          const messagesData = await getMessages(clientId);
-          setMessages(messagesData.unreadCount || 0);
-        } else {
-          setMessages(0);
-        }
+        // Fetch cases
+        const casesData = await getClientCases();
+        setCases(Array.isArray(casesData) ? casesData : []);
+        setActiveCases(casesData.filter(c => c.status === 'active' || c.status === 'open').length);
+        setLawyersHired(casesData.filter(c => c.lawyer_id).length);
+
+        // Fetch unread messages
+        const user = getUserFromStorage();
+        const messagesData = await getClientMessages({ user_id: user?.id });
+        setUnreadMessages(Array.isArray(messagesData) ? messagesData.filter(m => !m.is_read).length : 0);
+
+        // Fetch recent documents
+        const docs = await getDocuments();
+        setRecentDocs(Array.isArray(docs) ? docs.slice(0, 3) : []);
+
+        // Fetch recent invoices
+        const invoices = await getInvoices();
+        setRecentInvoices(Array.isArray(invoices) ? invoices.slice(0, 3) : []);
+
+        // Fetch transaction summary
+        const summaryData = await getClientTransactionSummary();
+        setSummary(summaryData);
       } catch (err) {
         // Handle error
       }
@@ -34,13 +54,7 @@ export default function ClientDashboard() {
   }, []);
 
   const handlePostCase = () => {
-    if (selectedService) {
-      navigate('/client/cases/new', { 
-        state: { preselectedService: selectedService } 
-      });
-    } else {
-      navigate('/client/cases/new');
-    }
+    navigate('/client/cases/new');
   };
 
   const handleViewCases = () => {
@@ -48,30 +62,31 @@ export default function ClientDashboard() {
   };
 
   const handleViewMessages = () => {
-    navigate('/client/messages');
-    // Reset unread messages counter
-    setMessages(0);
-    localStorage.setItem('unreadMessages', '0');
+    navigate('/client/chats');
+    setUnreadMessages(0);
   };
 
   const handleFindLawyers = () => {
-    navigate('/client/lawyers');
+    navigate('/lawyers-directory');
   };
 
   const handleHireLawyer = async (caseId) => {
     try {
-      // In a real app, this would call an API to hire a lawyer for a specific case
       await updateCase(caseId, { status: 'lawyer-hired', hired: true });
-      const casesData = await getCases();
-      setCases(casesData);
-      setActiveCases(casesData.filter(caseItem => caseItem.status === 'active' || caseItem.status === 'lawyer-hired').length);
+      const casesData = await getClientCases();
+      setCases(Array.isArray(casesData) ? casesData : []);
+      setActiveCases(casesData.filter(c => c.status === 'active' || c.status === 'lawyer-hired').length);
+      setLawyersHired(casesData.filter(c => c.lawyer_id).length);
       alert('Lawyer hired successfully!');
     } catch (err) {
       // Handle error
     }
   };
 
-  // ...existing code...
+  // Quick links
+  const handleViewDocuments = () => navigate('/client/documents');
+  const handleViewInvoices = () => navigate('/client/invoices');
+  const handleViewTransactions = () => navigate('/client/transactions');
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
@@ -79,45 +94,61 @@ export default function ClientDashboard() {
       <p className="text-lg text-blue-700 mb-6">Welcome to Dikoras! Dikoras is the easiest solution for any client to get cost-effective and high quality legal services.</p>
       
       {/* Stats Section */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
         <div className="bg-blue-50 rounded-xl shadow p-6 flex flex-col items-center">
           <span className="text-4xl font-bold text-blue-700 mb-2">{activeCases}</span>
           <span className="text-blue-900 font-semibold">Active Cases</span>
-          <button 
-            onClick={handleViewCases}
-            className="mt-2 text-blue-600 text-sm hover:underline"
-          >
-            View All
-          </button>
+          <button onClick={handleViewCases} className="mt-2 text-blue-600 text-sm hover:underline">View All</button>
         </div>
-        <div className="bg-blue-50 rounded-xl shadow p-6 flex flex-col items-center">
-          <span className="text-4xl font-bold text-blue-700 mb-2">{cases.filter(c => c.hired).length || 5}</span>
-          <span className="text-blue-900 font-semibold">Lawyers Hired</span>
+        <div className="bg-green-50 rounded-xl shadow p-6 flex flex-col items-center">
+          <span className="text-4xl font-bold text-green-700 mb-2">{lawyersHired}</span>
+          <span className="text-green-900 font-semibold">Lawyers Hired</span>
         </div>
-        <div className="bg-blue-50 rounded-xl shadow p-6 flex flex-col items-center">
-          <span className="text-4xl font-bold text-blue-700 mb-2">{messages}</span>
-          <span className="text-blue-900 font-semibold">Unread Messages</span>
-          <button 
-            onClick={handleViewMessages}
-            className="mt-2 text-blue-600 text-sm hover:underline"
-          >
-            View Messages
-          </button>
+        <div className="bg-yellow-50 rounded-xl shadow p-6 flex flex-col items-center">
+          <span className="text-4xl font-bold text-yellow-700 mb-2">{unreadMessages}</span>
+          <span className="text-yellow-900 font-semibold">Unread Messages</span>
+          <button onClick={handleViewMessages} className="mt-2 text-yellow-600 text-sm hover:underline">View Messages</button>
+        </div>
+        <div className="bg-purple-50 rounded-xl shadow p-6 flex flex-col items-center">
+          <span className="text-4xl font-bold text-purple-700 mb-2">{summary?.totalSpent ?? '-'}</span>
+          <span className="text-purple-900 font-semibold">Total Spent</span>
+          <button onClick={handleViewTransactions} className="mt-2 text-purple-600 text-sm hover:underline">View Transactions</button>
         </div>
       </div>
       
-      {selectedService && (
-        <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <h3 className="font-bold text-blue-800 mb-2">Continue with your selected service:</h3>
-          <p className="text-blue-700">{selectedService.title}</p>
-          <button 
-            onClick={handlePostCase}
-            className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Continue with {selectedService.title}
-          </button>
+      {/* Quick Links Section */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+        <div className="bg-white rounded-xl shadow p-6 flex flex-col">
+          <h2 className="text-lg font-bold text-blue-900 mb-2">Recent Documents</h2>
+          {recentDocs.length === 0 ? <span className="text-blue-700">No documents found.</span> : recentDocs.map(doc => (
+            <div key={doc.id} className="mb-2 flex justify-between items-center">
+              <span className="text-blue-700">{doc.title}</span>
+              <button className="text-blue-600 hover:text-blue-800 text-sm" onClick={handleViewDocuments}>View</button>
+            </div>
+          ))}
+          <button className="mt-2 text-blue-600 text-sm hover:underline" onClick={handleViewDocuments}>View All Documents</button>
         </div>
-      )}
+        <div className="bg-white rounded-xl shadow p-6 flex flex-col">
+          <h2 className="text-lg font-bold text-blue-900 mb-2">Recent Invoices</h2>
+          {recentInvoices.length === 0 ? <span className="text-blue-700">No invoices found.</span> : recentInvoices.map(inv => (
+            <div key={inv.id} className="mb-2 flex justify-between items-center">
+              <span className="text-blue-700">Invoice #{inv.invoice_number}</span>
+              <button className="text-blue-600 hover:text-blue-800 text-sm" onClick={handleViewInvoices}>View</button>
+            </div>
+          ))}
+          <button className="mt-2 text-blue-600 text-sm hover:underline" onClick={handleViewInvoices}>View All Invoices</button>
+        </div>
+        <div className="bg-white rounded-xl shadow p-6 flex flex-col">
+          <h2 className="text-lg font-bold text-blue-900 mb-2">Recent Transactions</h2>
+          {summary?.recentTransactions && summary.recentTransactions.length > 0 ? summary.recentTransactions.slice(0, 3).map(txn => (
+            <div key={txn.id} className="mb-2 flex justify-between items-center">
+              <span className="text-blue-700">Txn #{txn.transaction_number}</span>
+              <button className="text-blue-600 hover:text-blue-800 text-sm" onClick={handleViewTransactions}>View</button>
+            </div>
+          )) : <span className="text-blue-700">No transactions found.</span>}
+          <button className="mt-2 text-blue-600 text-sm hover:underline" onClick={handleViewTransactions}>View All Transactions</button>
+        </div>
+      </div>
       
       {/* Recent Cases Section */}
       {cases.length > 0 && (
@@ -130,7 +161,6 @@ export default function ClientDashboard() {
                   <th className="p-3 text-left text-blue-900">Case Title</th>
                   <th className="p-3 text-left text-blue-900">Type</th>
                   <th className="p-3 text-left text-blue-900">Status</th>
-                  <th className="p-3 text-left text-blue-900">Proposals</th>
                   <th className="p-3 text-left text-blue-900">Actions</th>
                 </tr>
               </thead>
@@ -138,7 +168,7 @@ export default function ClientDashboard() {
                 {cases.slice(0, 3).map(caseItem => (
                   <tr key={caseItem.id} className="border-b border-gray-100">
                     <td className="p-3 font-medium">{caseItem.title}</td>
-                    <td className="p-3">{caseItem.type}</td>
+                    <td className="p-3">{caseItem.legal_service || caseItem.type}</td>
                     <td className="p-3">
                       <span className={`px-2 py-1 rounded-full text-xs ${
                         caseItem.status === 'active' ? 'bg-yellow-100 text-yellow-800' :
@@ -149,9 +179,8 @@ export default function ClientDashboard() {
                         {caseItem.status.replace('-', ' ')}
                       </span>
                     </td>
-                    <td className="p-3">{caseItem.proposals}</td>
                     <td className="p-3">
-                      {caseItem.status === 'proposals-received' && !caseItem.hired ? (
+                      {caseItem.status === 'proposals-received' && !caseItem.lawyer_id ? (
                         <button 
                           onClick={() => handleHireLawyer(caseItem.id)}
                           className="bg-green-500 hover:bg-green-600 text-white text-sm font-medium py-1 px-3 rounded"
@@ -160,7 +189,7 @@ export default function ClientDashboard() {
                         </button>
                       ) : (
                         <button 
-                          onClick={handleViewCases}
+                          onClick={() => navigate(`/client/cases/${caseItem.id}`)}
                           className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-1 px-3 rounded"
                         >
                           View Details
@@ -173,16 +202,12 @@ export default function ClientDashboard() {
             </table>
           </div>
           <div className="flex justify-end mt-4">
-            <button 
-              onClick={handleViewCases}
-              className="text-blue-600 hover:text-blue-800 font-medium"
-            >
-              View All Cases →
-            </button>
+            <button onClick={handleViewCases} className="text-blue-600 hover:text-blue-800 font-medium">View All Cases →</button>
           </div>
         </div>
       )}
       
+      {/* Action Cards Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
         {/* Post a Case */}
         <div className="flex items-center space-x-4 bg-white p-4 rounded-xl shadow">
@@ -190,12 +215,7 @@ export default function ClientDashboard() {
           <div>
             <h2 className="font-bold text-blue-900 text-lg mb-1">Post a Case</h2>
             <p className="text-blue-700 text-sm">Get started by telling us about your legal needs. It only takes a minute and your information is strictly confidential.</p>
-            <button 
-              onClick={handlePostCase}
-              className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1 px-3 rounded"
-            >
-              Post a Case
-            </button>
+            <button onClick={handlePostCase} className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1 px-3 rounded">Post a Case</button>
           </div>
         </div>
         {/* Get Proposals */}
@@ -204,12 +224,7 @@ export default function ClientDashboard() {
           <div>
             <h2 className="font-bold text-blue-900 text-lg mb-1">Get Proposals</h2>
             <p className="text-blue-700 text-sm">Our algorithm matches you with attorneys most qualified to handle your specific legal work. Review proposals and schedule free consultations.</p>
-            <button 
-              onClick={handleViewCases}
-              className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1 px-3 rounded"
-            >
-              View Proposals
-            </button>
+            <button onClick={handleViewCases} className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1 px-3 rounded">View Proposals</button>
           </div>
         </div>
         {/* Hire your Lawyer */}
@@ -219,29 +234,14 @@ export default function ClientDashboard() {
             <h2 className="font-bold text-blue-900 text-lg mb-1">Hire your Lawyer</h2>
             <p className="text-blue-700 text-sm">When you're ready, instantly hire the attorney that's right for you.</p>
             <div className="flex space-x-2 mt-2">
-              <button 
-                onClick={handleFindLawyers}
-                className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1 px-3 rounded"
-              >
-                Find Lawyers
-              </button>
-              <button 
-                onClick={handleViewMessages}
-                className="bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-1 px-3 rounded"
-              >
-                Message Lawyers
-              </button>
+              <button onClick={handleFindLawyers} className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1 px-3 rounded">Find Lawyers</button>
+              <button onClick={handleViewMessages} className="bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-1 px-3 rounded">Message Lawyers</button>
             </div>
           </div>
         </div>
       </div>
       <div className="flex justify-center mt-8">
-        <button 
-          onClick={handlePostCase}
-          className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-200"
-        >
-          Post a Case & Get Free Proposals
-        </button>
+        <button onClick={handlePostCase} className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-200">Post a Case & Get Free Proposals</button>
       </div>
     </div>
   );

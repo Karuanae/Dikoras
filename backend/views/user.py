@@ -1,3 +1,4 @@
+
 from flask import Flask, request, jsonify, Blueprint
 from models import db, User, LegalService
 from flask_mail import Message
@@ -7,7 +8,26 @@ mail = Mail()
 
 user_bp = Blueprint("user_bp", __name__, url_prefix="/user")
 
-# Register user (client/lawyer)
+# List all pending lawyers (admin view)
+@user_bp.route("/pending-lawyers", methods=["GET"])
+def list_pending_lawyers():
+    pending_lawyers = User.query.filter_by(user_type='lawyer', approval_status='pending').all()
+    result = []
+    for user in pending_lawyers:
+        result.append({
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "years_of_experience": user.years_of_experience,
+            "education": user.education,
+            "hourly_rate": float(user.hourly_rate) if user.hourly_rate else None,
+            "bio": user.bio,
+            "specializations": user.specializations.split(',') if user.specializations else [],
+            "created_at": user.created_at
+        })
+    return jsonify(result), 200
 @user_bp.route("/", methods=["POST"])
 def create_user():
     data = request.get_json()
@@ -152,12 +172,17 @@ def update_user(user_id):
     if approval_status and approval_status in ['pending', 'approved', 'rejected']:
         user.approval_status = approval_status
 
+    # Allow rejected lawyers to reapply by updating profile (set status to pending)
+    if user.user_type == 'lawyer' and user.approval_status == 'rejected':
+        # If lawyer updates profile, set status back to pending
+        user.approval_status = 'pending'
+
     try:
         # Send update notification email
         msg = Message(
             subject="Profile Updated - Legal Services Platform",
             recipients=[user.email],
-            sender=app.config['MAIL_DEFAULT_SENDER'],
+            sender=current_app.config['MAIL_DEFAULT_SENDER'],
             body=f"Hello {user.first_name},\n\nYour profile has been updated successfully on Legal Services Platform.\n\nBest regards,\nLegal Services Platform Team"
         )
         mail.send(msg)        
@@ -291,7 +316,7 @@ def approve_lawyer(user_id):
         msg = Message(
             subject="Account Approved - Legal Services Platform",
             recipients=[user.email],
-            sender=app.config['MAIL_DEFAULT_SENDER'],
+            sender=current_app.config['MAIL_DEFAULT_SENDER'],
             body=f"Hello {user.first_name},\n\nCongratulations! Your lawyer account has been approved. You can now access the platform and start accepting cases.\n\nBest regards,\nLegal Services Platform Team"
         )
         mail.send(msg)
@@ -324,7 +349,7 @@ def reject_lawyer(user_id):
         msg = Message(
             subject="Account Application - Legal Services Platform",
             recipients=[user.email],
-            sender=app.config['MAIL_DEFAULT_SENDER'],
+            sender=current_app.config['MAIL_DEFAULT_SENDER'],
             body=f"Hello {user.first_name},\n\nThank you for your interest in joining our Legal Services Platform. Unfortunately, your lawyer account application has been declined.\n\nReason: {rejection_reason}\n\nYou may reapply with updated information.\n\nBest regards,\nLegal Services Platform Team"
         )
         mail.send(msg)

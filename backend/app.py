@@ -1,5 +1,6 @@
 from datetime import timedelta
 from flask import Flask, request, jsonify
+from flask_socketio import SocketIO
 from flask_login import LoginManager
 from models import db, TokenBlocklist, User
 from flask_migrate import Migrate
@@ -8,6 +9,7 @@ from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 
 app = Flask(__name__)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Database configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///legal_platform.db'
@@ -70,7 +72,6 @@ login_manager.login_message = 'Please log in to access this page.'
 def load_user(user_id):
     return User.query.get(user_id)
 
-# Register Blueprints (updated for consistency)
 from views.auth import auth_bp
 from views.admin import admin_bp
 from views.client import client_bp
@@ -96,6 +97,13 @@ app.register_blueprint(case_bp, url_prefix='/case')
 app.register_blueprint(invoice_bp, url_prefix='/invoice')
 app.register_blueprint(transaction_bp, url_prefix='/transaction')
 app.register_blueprint(notification_bp, url_prefix='/notification')
+
+# SocketIO event for typing indicator
+@socketio.on('typing')
+def handle_typing(data):
+    room = data.get('room')
+    user = data.get('user')
+    socketio.emit('typing', {'user': user}, room=room)
 
 # JWT token blocklist callback
 @jwt.token_in_blocklist_loader
@@ -180,5 +188,5 @@ if __name__ == "__main__":
             print("Database tables created successfully!")
         except Exception as e:
             print(f"Error creating database tables: {str(e)}")
-    
-    app.run(debug=True)
+    # Use socketio.run instead of app.run
+    socketio.run(app, debug=True)

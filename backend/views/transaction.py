@@ -1,3 +1,6 @@
+
+import csv
+from io import StringIO
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models import db, Transaction, User
@@ -5,6 +8,51 @@ from datetime import datetime
 from decimal import Decimal
 
 transaction_bp = Blueprint("transaction_bp", __name__, url_prefix="/transaction")
+
+# Export transactions as CSV
+@transaction_bp.route("/export", methods=["GET"])
+@jwt_required()
+def export_transactions():
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    # Filter based on user type
+    if user.user_type == 'client':
+        query = Transaction.query.filter_by(client_id=current_user_id)
+    elif user.user_type == 'lawyer':
+        query = Transaction.query.filter_by(lawyer_id=current_user_id)
+    else:  # admin
+        query = Transaction.query
+
+    transactions = query.order_by(Transaction.created_at.desc()).all()
+
+    # Prepare CSV
+    si = StringIO()
+    writer = csv.writer(si)
+    writer.writerow(["Transaction Number", "Type", "Amount", "Status", "Description", "Payment Method", "Payment Reference", "Created At"])
+    for t in transactions:
+        writer.writerow([
+            t.transaction_number,
+            t.transaction_type,
+            float(t.amount),
+            t.status,
+            t.description,
+            t.payment_method,
+            t.payment_reference,
+            t.created_at.strftime('%Y-%m-%d %H:%M:%S') if t.created_at else ''
+        ])
+    output = si.getvalue()
+
+    return (
+        output,
+        200,
+        {
+            "Content-Type": "text/csv",
+            "Content-Disposition": "attachment; filename=transactions.csv"
+        }
+    )
 
 # Get all transactions for current user
 @transaction_bp.route("/", methods=["GET"])

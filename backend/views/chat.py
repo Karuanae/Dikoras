@@ -1,5 +1,5 @@
 # chat.py
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
 from flask_login import login_required, current_user
 from models import db, Case, Chat, Notification
 from datetime import datetime
@@ -48,24 +48,48 @@ def chat_room(case_id):
 @chat_bp.route('/<case_id>/send', methods=['POST'])
 @login_required
 def send_message(case_id):
-    """Send a chat message"""
+    """Send a chat message (supports file attachments)"""
     case = Case.query.get_or_404(case_id)
-    
+
     # Check permissions
     if current_user.user_type == 'client' and case.client_id != current_user.id:
         return jsonify({'error': 'Access denied'}), 403
     elif current_user.user_type == 'lawyer' and case.lawyer_id != current_user.id:
         return jsonify({'error': 'Access denied'}), 403
-    
-    message_text = request.json.get('message')
-    if not message_text:
-        return jsonify({'error': 'Message cannot be empty'}), 400
-    
+
+    # Accept both JSON and multipart/form-data
+    if request.content_type and request.content_type.startswith('multipart/form-data'):
+        message_text = request.form.get('message')
+        file = request.files.get('file')
+    else:
+        data = request.get_json(force=True)
+        message_text = data.get('message')
+        file = None
+
+    if not message_text and not file:
+        return jsonify({'error': 'Message or file required'}), 400
+
+    attachment_url = None
+    attachment_name = None
+    if file:
+        # Save file to uploads/documents/chat_<case_id>_<timestamp>_<filename>
+        import os
+        from werkzeug.utils import secure_filename
+        uploads_dir = os.path.join('uploads', 'documents')
+        os.makedirs(uploads_dir, exist_ok=True)
+        filename = f"chat_{case_id}_{int(datetime.utcnow().timestamp())}_{secure_filename(file.filename)}"
+        file_path = os.path.join(uploads_dir, filename)
+        file.save(file_path)
+        attachment_url = f"/{file_path}"
+        attachment_name = file.filename
+
     try:
         message = Chat(
             case_id=case_id,
             sender_id=current_user.id,
-            message=message_text
+            message=message_text,
+            attachment_url=attachment_url,
+            attachment_name=attachment_name
         )
         db.session.add(message)
 
@@ -83,13 +107,29 @@ def send_message(case_id):
 
         db.session.commit()
 
+        # Emit socket event for real-time chat
+        socketio = current_app.extensions.get('socketio')
+        if socketio:
+            socketio.emit('new_chat_message', {
+                'case_id': case_id,
+                'id': message.id,
+                'sender_name': current_user.get_full_name(),
+                'sender_id': current_user.id,
+                'message': message.message,
+                'created_at': message.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'attachment_url': message.attachment_url,
+                'attachment_name': message.attachment_name
+            }, room=f'case_{case_id}')
+
         return jsonify({
             'success': True,
             'message': {
                 'id': message.id,
                 'sender_name': current_user.get_full_name(),
                 'message': message.message,
-                'created_at': message.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                'created_at': message.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'attachment_url': message.attachment_url,
+                'attachment_name': message.attachment_name
             }
         })
     except Exception as e:

@@ -1054,14 +1054,13 @@ def toggle_user_active_status(user_id):
 def api_dashboard_stats():
     """API endpoint for dashboard statistics (legacy)"""
     stats = {
-        'total_users': User.query.count(),
-        'pending_lawyers': User.query.filter_by(user_type='lawyer', approval_status='pending').count(),
-        'total_cases': Case.query.count(),
-        'open_cases': Case.query.filter_by(status='open').count(),
-        'total_revenue': float(db.session.query(func.sum(Transaction.amount)).filter(
-            Transaction.status == 'completed'
-        ).scalar() or 0),
-        'pending_invoices': Invoice.query.filter_by(status='sent').count()
+        'totalLawyers': User.query.filter_by(user_type='lawyer').count(),
+        'totalClients': User.query.filter_by(user_type='client').count(),
+        'activeCases': Case.query.filter(Case.status.in_(['open', 'assigned', 'in_progress'])).count(),
+        'pendingApprovals': User.query.filter_by(user_type='lawyer', approval_status='pending').count(),
+        'unassignedCases': Case.query.filter_by(status='open').count(),
+        'revenue': float(db.session.query(func.sum(Transaction.amount)).filter(Transaction.status == 'completed').scalar() or 0),
+        'totalCases': Case.query.count(),
+        'pendingInvoices': Invoice.query.filter_by(status='sent').count()
     }
-    
     return jsonify(stats), 200

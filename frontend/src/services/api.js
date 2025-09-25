@@ -1,3 +1,63 @@
+// Upload document with file (multipart/form-data)
+export async function uploadDocumentWithFile({ case_id, file, title, document_type, description, is_confidential }) {
+  if (!case_id || !file) throw new Error('Missing case_id or file');
+  const formData = new FormData();
+  formData.append('file', file);
+  if (title) formData.append('title', title);
+  if (document_type) formData.append('document_type', document_type);
+  if (description) formData.append('description', description);
+  if (is_confidential !== undefined) formData.append('is_confidential', is_confidential);
+  const res = await axios.post(`/document/upload/${case_id}`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+  return res.data;
+}
+
+// Request invoice (for lawyer)
+export async function requestInvoice({ case_id, amount, description, tax_amount, due_days }) {
+  if (!case_id || !amount || !description) throw new Error('Missing required invoice fields');
+  const res = await axios.post(`/invoice/`, {
+    case_id,
+    amount,
+    description,
+    tax_amount: tax_amount || 0,
+    due_days: due_days || 30
+  });
+  return res.data;
+}
+
+// Export transactions as CSV (downloads file)
+export async function exportTransactions() {
+  const res = await axios.get(`/transaction/export`, { responseType: 'blob' });
+  // Create a link and trigger download
+  const url = window.URL.createObjectURL(new Blob([res.data]));
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', 'transactions.csv');
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+// Send chat message with file attachment
+export async function sendChatWithAttachment({ case_id, chat, file }) {
+  if (!case_id || (!chat && !file)) throw new Error('Missing case_id or content');
+  const formData = new FormData();
+  if (chat) formData.append('message', chat);
+  if (file) formData.append('file', file);
+  const res = await axios.post(`/chat/${case_id}/send`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+  return res.data;
+}
+// Get unread chat count for a case
+export async function getUnreadChatsCount(caseId) {
+  if (!caseId) return 0;
+  // Fetch all messages and count those not is_current_user and not is_read
+  const res = await axios.get(`/chat/api/messages/${caseId}`);
+  if (!Array.isArray(res.data)) return 0;
+  const userId = getUserFromStorage()?.id;
+  return res.data.filter(msg => msg.sender_id !== userId && msg.is_read === false).length;
+}
 import axios from 'axios';
 
 // Set base URL for your backend
@@ -63,7 +123,8 @@ export async function deactivateLawyer(lawyerId) {
 }
 
 export async function getLawyers() {
-  const res = await axios.get(`${ADMIN_BASE}/lawyers`);
+  // Fetch pending lawyers for admin dashboard
+  const res = await axios.get(`/user/?user_type=lawyer&approval_status=pending`);
   return res.data;
 }
 
@@ -79,24 +140,25 @@ export async function getCases() {
 
 // ===== USER ENDPOINTS =====
 export async function registerUser(data) {
-  // Map frontend fields to backend
+  // Map frontend fields to backend - handle both frontend and backend field names
   const payload = {
-    username: data.email.split('@')[0],
-    email: data.email,
-    password: data.password,
-    confirm_password: data.confirmPassword,
-    first_name: data.firstName,
-    last_name: data.lastName,
-    user_type: data.role || 'client',
-    phone: data.phone,
-    address: data.address,
-    years_of_experience: data.yearsOfExperience,
-    education: data.education,
-    hourly_rate: data.hourlyRate,
-    bio: data.bio,
+    username: data.username || '',
+    email: data.email || '',
+    password: data.password || '',
+    confirm_password: data.confirm_password || data.confirmPassword || '',
+    // Handle both frontend (firstName) and backend (first_name) field names
+    first_name: data.first_name || data.firstName || '',
+    last_name: data.last_name || data.lastName || '',
+    user_type: data.user_type || data.role || 'client',
+    phone: data.phone || '',
+    address: data.address || '',
+    years_of_experience: data.years_of_experience || data.yearsOfExperience || data.experience || '',
+    education: data.education || '',
+    hourly_rate: data.hourly_rate || data.hourlyRate || '',
+    bio: data.bio || '',
     specializations: data.specializations || [],
   };
-  const res = await axios.post(`/user/`, payload); // Add trailing slash to avoid CORS redirect
+  const res = await axios.post(`/user/`, payload);
   return res.data;
 }
 
@@ -458,23 +520,51 @@ export async function deleteTransaction(transactionId) {
 
 // Chat endpoints for unified Chat.jsx
 export async function getClientChats(params = {}) {
-  // e.g. /client/chats?contact_id=xxx
-  return axios.get(`/client/chats`, { params }).then(res => res.data);
+  // Use backend /chat/api/messages/<case_id>
+  const caseId = params.case_id || params.contact_id;
+  if (!caseId) return [];
+  const res = await axios.get(`/chat/api/messages/${caseId}`);
+  // Map backend fields to frontend expectations
+  return Array.isArray(res.data)
+    ? res.data.map(msg => ({
+        sender: msg.is_current_user ? getUserFromStorage()?.role : (getUserFromStorage()?.role === 'client' ? 'lawyer' : 'client'),
+        chat: msg.message,
+        created_at: msg.created_at,
+        sender_name: msg.sender_name,
+      }))
+    : [];
 }
 
 export async function getLawyerChats(params = {}) {
-  // e.g. /lawyer/chats?contact_id=xxx
-  return axios.get(`/lawyer/chats`, { params }).then(res => res.data);
+  // Use backend /chat/api/messages/<case_id>
+  const caseId = params.case_id || params.contact_id;
+  if (!caseId) return [];
+  const res = await axios.get(`/chat/api/messages/${caseId}`);
+  // Map backend fields to frontend expectations
+  return Array.isArray(res.data)
+    ? res.data.map(msg => ({
+        sender: msg.is_current_user ? getUserFromStorage()?.role : (getUserFromStorage()?.role === 'lawyer' ? 'client' : 'lawyer'),
+        chat: msg.message,
+        created_at: msg.created_at,
+        sender_name: msg.sender_name,
+      }))
+    : [];
 }
 
 export async function sendClientChat(data) {
-  // e.g. /client/chats (POST)
-  return axios.post(`/client/chats`, data).then(res => res.data);
+  // Use backend /chat/<case_id>/send
+  const caseId = data.case_id || data.contact_id;
+  if (!caseId || !data.chat) throw new Error('Missing case_id or chat');
+  const res = await axios.post(`/chat/${caseId}/send`, { message: data.chat });
+  return res.data;
 }
 
 export async function sendLawyerChat(data) {
-  // e.g. /lawyer/chats (POST)
-  return axios.post(`/lawyer/chats`, data).then(res => res.data);
+  // Use backend /chat/<case_id>/send
+  const caseId = data.case_id || data.contact_id;
+  if (!caseId || !data.chat) throw new Error('Missing case_id or chat');
+  const res = await axios.post(`/chat/${caseId}/send`, { message: data.chat });
+  return res.data;
 }
 
 // Legal Service endpoints

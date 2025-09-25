@@ -7,34 +7,31 @@ import { MapPin, Briefcase, Award, GraduationCap, Clock, DollarSign, Camera, Use
 const LawyerRegistration = () => {
   const [formData, setFormData] = useState({
     // Personal Information
+    username: '',
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
     
     // Professional Information
-    title: '',
-    specialization: '',
     hourlyRate: '',
     experience: '',
-    barAdmissions: '',
     education: '',
-    
-    // Location
-    location: '',
+    bio: '',
     
     // Practice Details
+    categories: [], // Will be mapped to specializations
+    languages: [], // Always an array
+    
+    // Location and Description (FIXED: Added these missing fields)
+    location: '',
     description: '',
-    categories: [],
-    languages: [],
-    availability: 'Within 24 hours',
     
     // Credentials
     password: '',
     confirmPassword: '',
     agreeToTerms: false,
-    
-    // Profile Image
+    // Profile Image (not sent to backend)
     profileImage: null
   });
 
@@ -99,19 +96,55 @@ const LawyerRegistration = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // FIXED: Add client-side validation before submitting
+    const requiredFields = ['username', 'firstName', 'lastName', 'email', 'password', 'confirmPassword'];
+    const missingFields = requiredFields.filter(field => !formData[field]?.trim());
+    
+    if (missingFields.length > 0) {
+      alert(`Please fill in all required fields: ${missingFields.join(', ')}`);
+      return;
+    }
+    
+    if (formData.password !== formData.confirmPassword) {
+      alert('Passwords do not match');
+      return;
+    }
+    
+    if (formData.categories.length === 0) {
+      alert('Please select at least one specialization');
+      return;
+    }
+    
+    if (formData.languages.length === 0) {
+      alert('Please select at least one language');
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
+      // Map frontend fields to backend requirements
       const lawyerData = {
-        ...formData,
-        role: 'lawyer',
-        status: 'pending',
-        rating: 0,
-        reviews: 0,
-        profileImage: imagePreview || null
+        username: formData.username?.trim() || '',
+        email: formData.email?.trim() || '',
+        password: formData.password || '',
+        confirm_password: formData.confirmPassword || '',
+        first_name: formData.firstName?.trim() || '',
+        last_name: formData.lastName?.trim() || '',
+        user_type: 'lawyer',
+        phone: formData.phone?.trim() || '',
+        address: formData.location?.trim() || '', // FIXED: Now properly maps to location field
+        years_of_experience: formData.experience || '',
+        education: formData.education?.trim() || '',
+        hourly_rate: formData.hourlyRate || '',
+        bio: formData.bio?.trim() || '',
+        specializations: Array.isArray(formData.categories) ? formData.categories : [],
       };
+      
+      console.log('Sending data:', lawyerData); // Debug log
+      
       // Call backend API to register lawyer
       const response = await registerLawyer(lawyerData);
-      // Treat any 201 or success response as successful registration
       if ((response && response.status === 201) || (response && response.success)) {
         alert('Your application has been submitted for admin approval. You will be redirected to the Pending Approval page.');
         setTimeout(() => {
@@ -125,6 +158,7 @@ const LawyerRegistration = () => {
         alert('There was an error submitting your application. Please try again.');
       }
     } catch (error) {
+      console.error('Full error object:', error); // Enhanced error logging
       if (error.response && error.response.status === 201) {
         alert('Your application has been submitted for admin approval. You will be redirected to the Pending Approval page.');
         setTimeout(() => {
@@ -134,6 +168,10 @@ const LawyerRegistration = () => {
             }
           });
         }, 1500);
+      } else if (error.response && error.response.data && error.response.data.error) {
+        // Show backend error message
+        alert(`Registration failed: ${error.response.data.error}`);
+        console.error('Registration error:', error.response.data.error);
       } else {
         console.error('Registration error:', error);
         alert('There was an error submitting your application. Please try again.');
@@ -208,6 +246,18 @@ const LawyerRegistration = () => {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Username *</label>
+                  <input
+                    name="username"
+                    type="text"
+                    required
+                    value={formData.username}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="Username"
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">First name *</label>
                   <input
                     name="firstName"
@@ -266,18 +316,6 @@ const LawyerRegistration = () => {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Professional Title *</label>
-                  <input
-                    name="title"
-                    type="text"
-                    required
-                    value={formData.title}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="e.g., Corporate Law Specialist"
-                  />
-                </div>
-                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Hourly Rate ($) *</label>
                   <input
                     name="hourlyRate"
@@ -302,18 +340,6 @@ const LawyerRegistration = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Bar Admissions *</label>
-                  <input
-                    name="barAdmissions"
-                    type="text"
-                    required
-                    value={formData.barAdmissions}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="e.g., New York, California"
-                  />
-                </div>
-                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Education *</label>
                   <input
                     name="education"
@@ -326,18 +352,16 @@ const LawyerRegistration = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Availability *</label>
-                  <select
-                    name="availability"
-                    value={formData.availability}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Bio *</label>
+                  <textarea
+                    name="bio"
+                    required
+                    value={formData.bio}
                     onChange={handleChange}
+                    rows={2}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="Immediate consultation">Immediate consultation</option>
-                    <option value="Within 24 hours">Within 24 hours</option>
-                    <option value="Within 48 hours">Within 48 hours</option>
-                    <option value="Within 72 hours">Within 72 hours</option>
-                  </select>
+                    placeholder="Short professional bio..."
+                  />
                 </div>
               </div>
             </div>

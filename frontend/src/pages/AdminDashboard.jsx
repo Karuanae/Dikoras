@@ -23,11 +23,19 @@ export default function AdminDashboard() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const statsData = await getDashboardStats();
-        setStats(statsData);
-        const lawyersData = await getLawyers();
-        setPendingLawyers(lawyersData.filter(l => l.status === 'pending'));
-        setLawyerOptions(lawyersData);
+          const statsData = await getDashboardStats();
+          // Map backend keys to frontend keys
+          setStats({
+            totalLawyers: statsData.total_lawyers || statsData.totalLawyers || statsData.total_users || 0,
+            totalClients: statsData.total_clients || statsData.totalClients || 0,
+            activeCases: statsData.active_cases || statsData.activeCases || statsData.open_cases || 0,
+            pendingApprovals: statsData.pending_lawyers || statsData.pendingApprovals || statsData.pending_lawyers || 0,
+            unassignedCases: statsData.unassigned_cases || statsData.unassignedCases || 0,
+            revenue: statsData.total_revenue || statsData.revenue || 0
+          });
+  const lawyersData = await getLawyers();
+  setPendingLawyers(lawyersData.filter(l => l.approval_status === 'pending'));
+  setLawyerOptions(lawyersData);
         const casesData = await getCases();
         setNewCases(casesData.filter(c => c.status === 'new'));
         // If you have an API for recent contacts, fetch here. Otherwise, leave as empty array.
@@ -199,10 +207,10 @@ export default function AdminDashboard() {
                 <tbody>
                   {pendingLawyers.map(lawyer => (
                     <tr key={lawyer.id} className="border-b border-gray-100">
-                      <td className="p-3">{lawyer.name}</td>
-                      <td className="p-3">{lawyer.specialization}</td>
+                      <td className="p-3">{lawyer.first_name} {lawyer.last_name} ({lawyer.username})</td>
+                      <td className="p-3">{Array.isArray(lawyer.specializations) ? lawyer.specializations.join(', ') : lawyer.specializations}</td>
                       <td className="p-3">{lawyer.email}</td>
-                      <td className="p-3">{lawyer.registrationDate}</td>
+                      <td className="p-3">{lawyer.created_at ? new Date(lawyer.created_at).toLocaleDateString() : ''}</td>
                       <td className="p-3">
                         <button 
                           className="bg-green-500 hover:bg-green-600 text-white font-medium py-1 px-3 rounded mr-2"

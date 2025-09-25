@@ -6,7 +6,7 @@ const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, isAdmin, isLawyer, isClient, logout } = useAuth();
 
   // Helper to close menu on mobile link click
   const handleMobileLinkClick = () => setIsMenuOpen(false);
@@ -35,6 +35,23 @@ const Navbar = () => {
           <div className="hidden md:flex items-center space-x-6 ml-auto">
             {isAuthenticated() ? (
               <>
+                {/* Role-based dashboard link */}
+                {isAdmin() && (
+                  <NavLink to="/admin-dashboard" className={({ isActive }) =>
+                    `inline-flex items-center px-3 pt-1 border-b-2 text-base font-semibold transition-all duration-200 rounded-lg ${isActive ? 'border-blue-500 text-gray-900 bg-blue-50' : 'border-transparent text-blue-900 hover:border-blue-400 hover:text-blue-700 hover:bg-blue-50'}`
+                  }>Admin Dashboard</NavLink>
+                )}
+                {isClient() && (
+                  <NavLink to="/client/dashboard" className={({ isActive }) =>
+                    `inline-flex items-center px-3 pt-1 border-b-2 text-base font-semibold transition-all duration-200 rounded-lg ${isActive ? 'border-blue-500 text-gray-900 bg-blue-50' : 'border-transparent text-blue-900 hover:border-blue-400 hover:text-blue-700 hover:bg-blue-50'}`
+                  }>Client Dashboard</NavLink>
+                )}
+                {isLawyer() && (
+                  <NavLink to="/lawyer/dashboard" className={({ isActive }) =>
+                    `inline-flex items-center px-3 pt-1 border-b-2 text-base font-semibold transition-all duration-200 rounded-lg ${isActive ? 'border-blue-500 text-gray-900 bg-blue-50' : 'border-transparent text-blue-900 hover:border-blue-400 hover:text-blue-700 hover:bg-blue-50'}`
+                  }>Lawyer Dashboard</NavLink>
+                )}
+                {/* Notifications and avatar */}
                 <button className="relative" onClick={() => setShowNotifications(!showNotifications)}>
                   <span className="sr-only">Notifications</span>
                   <svg className="w-6 w-6 text-blue-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -51,12 +68,12 @@ const Navbar = () => {
                   )}
                 </button>
                 <button className="w-10 h-10 rounded-full bg-blue-200 flex items-center justify-center border border-blue-300" onClick={() => setShowAvatarMenu(!showAvatarMenu)}>
-                  <img src={`https://ui-avatars.com/api/?name=${user?.role === 'client' ? 'CL' : 'LW'}&background=blue&color=fff`} alt="User Avatar" className="w-8 h-8 rounded-full font-bold" />
+                  <img src={`https://ui-avatars.com/api/?name=${user?.role === 'client' ? 'CL' : user?.role === 'lawyer' ? 'LW' : 'AD'}&background=blue&color=fff`} alt="User Avatar" className="w-8 h-8 rounded-full font-bold" />
                 </button>
                 {showAvatarMenu && (
                   <div className="absolute right-4 mt-14 w-40 bg-white rounded-xl shadow-lg border border-blue-100 z-50">
-                    <button className="w-full py-2 text-blue-700 hover:bg-blue-50">Profile</button>
-                    <button className="w-full py-2 text-blue-700 hover:bg-blue-50" onClick={logout}>Logout</button>
+                    <NavLink to={isClient() ? "/client/dashboard" : isLawyer() ? "/lawyer/dashboard" : "/admin-dashboard"} className="w-full py-2 text-blue-700 hover:bg-blue-50 block text-left">Profile</NavLink>
+                    <button className="w-full py-2 text-blue-700 hover:bg-blue-50 text-left" onClick={logout}>Logout</button>
                   </div>
                 )}
               </>
