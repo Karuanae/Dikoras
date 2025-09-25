@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getDashboardStats, getLawyers, getCases, getClients, activateLawyer, deactivateLawyer } from '../services/api';
@@ -81,110 +82,137 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <h1 className="text-3xl font-extrabold text-blue-900 mb-2">Admin Dashboard</h1>
-      <p className="text-lg text-blue-700 mb-6">Welcome, Admin! Manage all users, cases, and platform activity from one place.</p>
+    <div className="flex min-h-screen bg-gray-50">
+      {/* Sidebar */}
+      <aside className="w-64 bg-white shadow-lg flex flex-col py-8 px-4">
+        <h2 className="text-2xl font-extrabold text-blue-900 mb-8 text-center">Admin</h2>
+        <nav className="flex flex-col gap-2">
+          <button
+            className={`text-left px-4 py-2 rounded font-medium transition-colors ${activeTab === 'overview' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100 text-gray-700'}`}
+            onClick={() => setActiveTab('overview')}
+          >
+            Overview
+          </button>
+          <button
+            className={`text-left px-4 py-2 rounded font-medium transition-colors ${activeTab === 'lawyers' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100 text-gray-700'}`}
+            onClick={() => setActiveTab('lawyers')}
+          >
+            Lawyer Approvals
+          </button>
+          <button
+            className={`text-left px-4 py-2 rounded font-medium transition-colors ${activeTab === 'cases' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100 text-gray-700'}`}
+            onClick={() => setActiveTab('cases')}
+          >
+            Case Management
+          </button>
+          <button
+            className={`text-left px-4 py-2 rounded font-medium transition-colors ${activeTab === 'contacts' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100 text-gray-700'}`}
+            onClick={() => setActiveTab('contacts')}
+          >
+            Client-Lawyer Contacts
+          </button>
+          <button
+            className={`text-left px-4 py-2 rounded font-medium transition-colors mt-4 border-t border-gray-200 ${window.location.pathname === '/admin/services/add' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100 text-gray-700'}`}
+            onClick={() => navigate('/admin/services/add')}
+          >
+            + Add Legal Service
+          </button>
+        </nav>
+      </aside>
+      {/* Main Content */}
+  <main className="flex-1 p-8">
+        <h1 className="text-3xl font-extrabold text-blue-900 mb-2">Admin Dashboard</h1>
+        <p className="text-lg text-blue-700 mb-6">Welcome, Admin! Manage all users, cases, and platform activity from one place.</p>
 
-      {/* Stats Section */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-        <div className="bg-white rounded-xl shadow p-4 flex flex-col items-center">
-          <span className="text-2xl font-bold text-blue-700 mb-1">{stats.totalLawyers}</span>
-          <span className="text-blue-900 text-sm font-semibold">Total Lawyers</span>
-        </div>
-        <div className="bg-white rounded-xl shadow p-4 flex flex-col items-center">
-          <span className="text-2xl font-bold text-blue-700 mb-1">{stats.totalClients}</span>
-          <span className="text-blue-900 text-sm font-semibold">Total Clients</span>
-        </div>
-        <div className="bg-white rounded-xl shadow p-4 flex flex-col items-center">
-          <span className="text-2xl font-bold text-blue-700 mb-1">{stats.activeCases}</span>
-          <span className="text-blue-900 text-sm font-semibold">Active Cases</span>
-        </div>
-        <div className="bg-white rounded-xl shadow p-4 flex flex-col items-center">
-          <span className="text-2xl font-bold text-blue-700 mb-1">{stats.pendingApprovals}</span>
-          <span className="text-blue-900 text-sm font-semibold">Pending Approvals</span>
-        </div>
-        <div className="bg-white rounded-xl shadow p-4 flex flex-col items-center">
-          <span className="text-2xl font-bold text-blue-700 mb-1">{stats.unassignedCases}</span>
-          <span className="text-blue-900 text-sm font-semibold">Unassigned Cases</span>
-        </div>
-        <div className="bg-white rounded-xl shadow p-4 flex flex-col items-center">
-          <span className="text-2xl font-bold text-blue-700 mb-1">${stats.revenue}</span>
-          <span className="text-blue-900 text-sm font-semibold">Revenue</span>
-        </div>
-      </div>
+        {/* Main Tab Content */}
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <>
+            {/* Stats Section */}
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+              <div className="bg-white rounded-xl shadow p-4 flex flex-col items-center">
+                <span className="text-2xl font-bold text-blue-700 mb-1">{stats.totalLawyers}</span>
+                <span className="text-blue-900 text-sm font-semibold">Total Lawyers</span>
+              </div>
+              <div className="bg-white rounded-xl shadow p-4 flex flex-col items-center">
+                <span className="text-2xl font-bold text-blue-700 mb-1">{stats.totalClients}</span>
+                <span className="text-blue-900 text-sm font-semibold">Total Clients</span>
+              </div>
+              <div className="bg-white rounded-xl shadow p-4 flex flex-col items-center">
+                <span className="text-2xl font-bold text-blue-700 mb-1">{stats.activeCases}</span>
+                <span className="text-blue-900 text-sm font-semibold">Active Cases</span>
+              </div>
+              <div className="bg-white rounded-xl shadow p-4 flex flex-col items-center">
+                <span className="text-2xl font-bold text-blue-700 mb-1">{stats.pendingApprovals}</span>
+                <span className="text-blue-900 text-sm font-semibold">Pending Approvals</span>
+              </div>
+              <div className="bg-white rounded-xl shadow p-4 flex flex-col items-center">
+                <span className="text-2xl font-bold text-blue-700 mb-1">{stats.unassignedCases}</span>
+                <span className="text-blue-900 text-sm font-semibold">Unassigned Cases</span>
+              </div>
+              <div className="bg-white rounded-xl shadow p-4 flex flex-col items-center">
+                <span className="text-2xl font-bold text-blue-700 mb-1">${stats.revenue}</span>
+                <span className="text-blue-900 text-sm font-semibold">Revenue</span>
+              </div>
+            </div>
 
-      {/* Navigation Tabs */}
-      <div className="flex border-b border-gray-200 mb-6">
-        <button 
-          className={`py-2 px-4 font-medium ${activeTab === 'overview' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('overview')}
-        >
-          Overview
-        </button>
-        <button 
-          className={`py-2 px-4 font-medium ${activeTab === 'lawyers' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('lawyers')}
-        >
-          Lawyer Approvals
-        </button>
-        <button 
-          className={`py-2 px-4 font-medium ${activeTab === 'cases' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('cases')}
-        >
-          Case Management
-        </button>
-        <button 
-          className={`py-2 px-4 font-medium ${activeTab === 'contacts' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('contacts')}
-        >
-          Client-Lawyer Contacts
-        </button>
-      </div>
-
-      {/* Overview Tab */}
-      {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-          <div className="flex items-center space-x-4 bg-white p-4 rounded-xl shadow">
-            <img src="https://cdn-icons-png.flaticon.com/512/2921/2921222.png" alt="Manage Lawyers" className="w-16 h-16" />
-            <div>
-              <h2 className="font-bold text-blue-900 text-lg mb-1">Manage Lawyers</h2>
-              <p className="text-blue-700 text-sm">Approve, disapprove, and view all lawyers. See status and details.</p>
-              <button 
-                className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1 px-3 rounded"
-                onClick={() => setActiveTab('lawyers')}
-              >
-                View Pending Approvals
-              </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+              <div className="flex items-center space-x-4 bg-white p-4 rounded-xl shadow">
+                <img src="https://cdn-icons-png.flaticon.com/512/2921/2921222.png" alt="Manage Lawyers" className="w-16 h-16" />
+                <div>
+                  <h2 className="font-bold text-blue-900 text-lg mb-1">Manage Lawyers</h2>
+                  <p className="text-blue-700 text-sm">Approve, disapprove, and view all lawyers. See status and details.</p>
+                  <button 
+                    className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1 px-3 rounded"
+                    onClick={() => setActiveTab('lawyers')}
+                  >
+                    View Pending Approvals
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center space-x-4 bg-white p-4 rounded-xl shadow">
+                <img src="https://cdn-icons-png.flaticon.com/512/2921/2921223.png" alt="Manage Cases" className="w-16 h-16" />
+                <div>
+                  <h2 className="font-bold text-blue-900 text-lg mb-1">Manage Cases</h2>
+                  <p className="text-blue-700 text-sm">Assign lawyers, view case details, and manage all submissions.</p>
+                  <button 
+                    className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1 px-3 rounded"
+                    onClick={() => setActiveTab('cases')}
+                  >
+                    View New Cases
+                  </button>
+                </div>
+              </div>
+              {/* Add Legal Service Card */}
+              <div className="flex items-center space-x-4 bg-white p-4 rounded-xl shadow md:col-span-2">
+                <img src="https://cdn-icons-png.flaticon.com/512/2921/2921225.png" alt="Add Legal Service" className="w-16 h-16" />
+                <div>
+                  <h2 className="font-bold text-blue-900 text-lg mb-1">Add Legal Service</h2>
+                  <p className="text-blue-700 text-sm">Create a new legal service for clients to request.</p>
+                  <button
+                    className="mt-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-1 px-3 rounded"
+                    onClick={() => navigate('/admin/services/add')}
+                  >
+                    Add Legal Service
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center space-x-4 bg-white p-4 rounded-xl shadow md:col-span-2">
+                <img src="https://cdn-icons-png.flaticon.com/512/2921/2921224.png" alt="Monitor Contacts" className="w-16 h-16" />
+                <div>
+                  <h2 className="font-bold text-blue-900 text-lg mb-1">Monitor Contacts</h2>
+                  <p className="text-blue-700 text-sm">See which clients contacted which lawyers and stay updated on all communications.</p>
+                  <button 
+                    className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1 px-3 rounded"
+                    onClick={() => setActiveTab('contacts')}
+                  >
+                    View Recent Contacts
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center space-x-4 bg-white p-4 rounded-xl shadow">
-            <img src="https://cdn-icons-png.flaticon.com/512/2921/2921223.png" alt="Manage Cases" className="w-16 h-16" />
-            <div>
-              <h2 className="font-bold text-blue-900 text-lg mb-1">Manage Cases</h2>
-              <p className="text-blue-700 text-sm">Assign lawyers, view case details, and manage all submissions.</p>
-              <button 
-                className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1 px-3 rounded"
-                onClick={() => setActiveTab('cases')}
-              >
-                View New Cases
-              </button>
-            </div>
-          </div>
-          <div className="flex items-center space-x-4 bg-white p-4 rounded-xl shadow md:col-span-2">
-            <img src="https://cdn-icons-png.flaticon.com/512/2921/2921224.png" alt="Monitor Contacts" className="w-16 h-16" />
-            <div>
-              <h2 className="font-bold text-blue-900 text-lg mb-1">Monitor Contacts</h2>
-              <p className="text-blue-700 text-sm">See which clients contacted which lawyers and stay updated on all communications.</p>
-              <button 
-                className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1 px-3 rounded"
-                onClick={() => setActiveTab('contacts')}
-              >
-                View Recent Contacts
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
 
       {/* Lawyer Approvals Tab */}
       {activeTab === 'lawyers' && (
@@ -349,28 +377,13 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* Quick Stats Footer */}
-      <div className="bg-white rounded-xl shadow p-6 mt-8">
-        <h2 className="text-xl font-semibold text-blue-900 mb-4">Platform Overview</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-blue-700">{stats.totalLawyers}</div>
-            <div className="text-blue-900">Total Lawyers</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-blue-700">{stats.totalClients}</div>
-            <div className="text-blue-900">Total Clients</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-blue-700">{stats.activeCases}</div>
-            <div className="text-blue-900">Active Cases</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-blue-700">${stats.revenue}</div>
-            <div className="text-blue-900">Total Revenue</div>
-          </div>
-        </div>
-      </div>
+     
+        
+        
+          
+        
+      
+      </main>
     </div>
   );
 }

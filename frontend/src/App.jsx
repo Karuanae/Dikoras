@@ -47,6 +47,7 @@ import LawyerProfile from './pages/LawyerProfile';
 import LawyerSettings from './pages/LawyerSettings';
 import Unauthorized from './pages/Unauthorized';
 import NotFound from './pages/NotFound';
+
 import HowItWorks from './pages/HowItWorks';
 import LegalServices from './pages/LegalServices';
 import LawyersDirectory from './pages/LawyersDirectory';
@@ -55,6 +56,7 @@ import LawyerLayout from './components/LawyerLayout';
 
 import PendingApproval from './pages/PendingApproval';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminAddServicePage from './pages/AdminAddService';
 import FallbackRedirect from './components/FallbackRedirect';
 
 function App() {
@@ -81,6 +83,13 @@ function App() {
               <Route path="/legal-services" element={<LegalServices />} />
               <Route path="/lawyers-directory" element={<LawyersDirectory />} />
               <Route path="/pending-approval" element={<PendingApproval />} /> {/* Add this route */}
+
+              {/* Admin Add Legal Service Route */}
+              <Route path="/admin/services/add" element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminAddServicePage />
+                </ProtectedRoute>
+              } />
               
               {/* Protected Routes - Client Routes with Layout */}
               <Route path="/client" element={
