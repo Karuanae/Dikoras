@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { registerUser } from '../services/api';
+import { registerUser, loginUser } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 const Register = () => {
   const [formData, setFormData] = useState({
+    username: '',
     firstName: '',
     lastName: '',
     email: '',
@@ -31,28 +32,77 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    
     if (!formData.agreeToTerms) {
       setError('You must agree to the terms and conditions.');
       return;
     }
+    
     try {
+      // Call the registration API
       const userRes = await registerUser(formData);
-      // If registration returns 201, treat as success
-      if (userRes && (userRes.access_token && userRes.user)) {
-        // ...existing code for auto-login...
-      } else if (userRes && userRes.status === 201) {
-        setError('Registration successful! Please log in.');
-        setTimeout(() => navigate('/login'), 1500);
-      } else {
-        setError('Registration failed. Please check your details.');
+      
+      // If we get here without an error, registration was successful (201)
+      console.log('Registration successful:', userRes);
+      
+      // Attempt auto-login after successful registration
+      try {
+        // Call the loginUser API function (same as in Login.jsx)
+        const { token, user } = await loginUser({
+          username: formData.username,
+          password: formData.password
+        });
+        
+        if (token && user) {
+          // Call the AuthContext login function with user and token
+          login(user, token);
+          navigate('/client/dashboard');
+        } else {
+          // Login failed, but registration succeeded
+          setError('Registration successful! Please sign in with your credentials.');
+          setTimeout(() => {
+            navigate('/login');
+          }, 2000);
+        }
+      } catch (loginError) {
+        // Auto-login failed, but registration succeeded
+        console.log('Auto-login failed:', loginError);
+        setError('Registration successful! Please sign in with your credentials.');
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000);
       }
+      
     } catch (err) {
-      // Axios returns response object on error, so check status
+      console.log('Registration error:', err);
+      
+      // Check if it's actually a success case (axios sometimes treats 201 as error)
       if (err.response && err.response.status === 201) {
-        setError('Registration successful! Please log in.');
-        setTimeout(() => navigate('/login'), 1500);
+        // Registration succeeded, attempt auto-login
+        try {
+          const { token, user } = await loginUser({
+            username: formData.username,
+            password: formData.password
+          });
+          
+          if (token && user) {
+            login(user, token);
+            navigate('/client/dashboard');
+          } else {
+            setError('Registration successful! Please sign in with your credentials.');
+            setTimeout(() => {
+              navigate('/login');
+            }, 2000);
+          }
+        } catch (loginError) {
+          setError('Registration successful! Please sign in with your credentials.');
+          setTimeout(() => {
+            navigate('/login');
+          }, 2000);
+        }
       } else {
-        setError('Registration error: ' + (err.response?.data?.message || err.message));
+        // Actual registration error
+        setError(err.response?.data?.error || err.response?.data?.message || err.message || 'Registration failed. Please check your details.');
       }
     }
   };
@@ -83,8 +133,31 @@ const Register = () => {
           </div>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
-            {error && <div className="text-red-600 text-sm mb-2">{error}</div>}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {error && (
+              <div className={`text-sm mb-2 p-2 rounded ${
+                error.includes('successful') 
+                  ? 'text-green-600 bg-green-50' 
+                  : 'text-red-600 bg-red-50'
+              }`}>
+                {error}
+              </div>
+            )}
+            
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div>
+                <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                <input
+                  id="username"
+                  name="username"
+                  type="text"
+                  autoComplete="username"
+                  required
+                  value={formData.username}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  placeholder="Username"
+                />
+              </div>
               <div>
                 <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">First name</label>
                 <input

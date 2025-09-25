@@ -179,7 +179,7 @@ export async function getUserById(userId) {
 // ===== AUTH ENDPOINTS =====
 export async function loginUser(data) {
   const payload = {
-    username: data.email || data.username,
+    username: data.username || data.email,
     password: data.password,
   };
   const res = await axios.post(`/auth/login`, payload); // Corrected to match backend blueprint
