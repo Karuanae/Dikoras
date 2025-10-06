@@ -1,0 +1,74 @@
+{
+  "info": {
+    "name": "Dikoras API",
+    "description": "Postman collection for testing all Dikoras backend endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        { "name": "Login", "request": { "method": "POST", "header": [{"key":"Content-Type","value":"application/json"}], "url": { "raw": "{{base_url}}/login", "host": ["{{base_url}}"], "path": ["login"] }, "body": { "mode": "raw", "raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"testpass\"\n}" } } },
+        { "name": "Current User", "request": { "method": "GET", "url": { "raw": "{{base_url}}/current_user", "host": ["{{base_url}}"], "path": ["current_user"] } } },
+        { "name": "Logout", "request": { "method": "DELETE", "url": { "raw": "{{base_url}}/logout", "host": ["{{base_url}}"], "path": ["logout"] } } },
+        { "name": "Refresh JWT", "request": { "method": "POST", "url": { "raw": "{{base_url}}/refresh", "host": ["{{base_url}}"], "path": ["refresh"] } } },
+        { "name": "Change Password", "request": { "method": "PATCH", "url": { "raw": "{{base_url}}/change_password", "host": ["{{base_url}}"], "path": ["change_password"] } } },
+        { "name": "Forgot Password", "request": { "method": "POST", "url": { "raw": "{{base_url}}/forgot_password", "host": ["{{base_url}}"], "path": ["forgot_password"] } } },
+        { "name": "Check Auth", "request": { "method": "GET", "url": { "raw": "{{base_url}}/check_auth", "host": ["{{base_url}}"], "path": ["check_auth"] } } }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        { "name": "Dashboard", "request": { "method": "GET", "url": { "raw": "{{base_url}}/dashboard", "host": ["{{base_url}}"], "path": ["dashboard"] } } },
+        { "name": "Lawyers", "request": { "method": "GET", "url": { "raw": "{{base_url}}/lawyers", "host": ["{{base_url}}"], "path": ["lawyers"] } } },
+        { "name": "Clients", "request": { "method": "GET", "url": { "raw": "{{base_url}}/clients", "host": ["{{base_url}}"], "path": ["clients"] } } },
+        { "name": "Cases", "request": { "method": "GET", "url": { "raw": "{{base_url}}/cases", "host": ["{{base_url}}"], "path": ["cases"] } } },
+        { "name": "Transactions", "request": { "method": "GET", "url": { "raw": "{{base_url}}/transactions", "host": ["{{base_url}}"], "path": ["transactions"] } } },
+        { "name": "Legal Services", "request": { "method": "GET", "url": { "raw": "{{base_url}}/legal-services", "host": ["{{base_url}}"], "path": ["legal-services"] } } },
+        { "name": "Invoices", "request": { "method": "GET", "url": { "raw": "{{base_url}}/invoices", "host": ["{{base_url}}"], "path": ["invoices"] } } },
+        { "name": "Notifications", "request": { "method": "GET", "url": { "raw": "{{base_url}}/notifications", "host": ["{{base_url}}"], "path": ["notifications"] } } }
+      ]
+    },
+    {
+      "name": "Lawyer",
+      "item": [
+        { "name": "Dashboard", "request": { "method": "GET", "url": { "raw": "{{base_url}}/dashboard", "host": ["{{base_url}}"], "path": ["dashboard"] } } },
+        { "name": "Profile", "request": { "method": "GET", "url": { "raw": "{{base_url}}/profile", "host": ["{{base_url}}"], "path": ["profile"] } } },
+        { "name": "Cases", "request": { "method": "GET", "url": { "raw": "{{base_url}}/cases", "host": ["{{base_url}}"], "path": ["cases"] } } },
+        { "name": "Available Cases", "request": { "method": "GET", "url": { "raw": "{{base_url}}/available-cases", "host": ["{{base_url}}"], "path": ["available-cases"] } } },
+        { "name": "Invoices", "request": { "method": "GET", "url": { "raw": "{{base_url}}/invoices", "host": ["{{base_url}}"], "path": ["invoices"] } } },
+        { "name": "Transactions", "request": { "method": "GET", "url": { "raw": "{{base_url}}/transactions", "host": ["{{base_url}}"], "path": ["transactions"] } } },
+        { "name": "Documents", "request": { "method": "GET", "url": { "raw": "{{base_url}}/documents", "host": ["{{base_url}}"], "path": ["documents"] } } },
+        { "name": "Notifications", "request": { "method": "GET", "url": { "raw": "{{base_url}}/notifications", "host": ["{{base_url}}"], "path": ["notifications"] } } }
+      ]
+    },
+    {
+      "name": "Client",
+      "item": [
+        { "name": "Dashboard", "request": { "method": "GET", "url": { "raw": "{{base_url}}/client/dashboard", "host": ["{{base_url}}"], "path": ["client", "dashboard"] } } },
+        { "name": "Profile", "request": { "method": "GET", "url": { "raw": "{{base_url}}/client/profile", "host": ["{{base_url}}"], "path": ["client", "profile"] } } },
+        { "name": "Cases", "request": { "method": "GET", "url": { "raw": "{{base_url}}/client/cases", "host": ["{{base_url}}"], "path": ["client", "cases"] } } },
+        { "name": "Lawyer Requests", "request": { "method": "GET", "url": { "raw": "{{base_url}}/client/lawyer-requests", "host": ["{{base_url}}"], "path": ["client", "lawyer-requests"] } } },
+        { "name": "Stats", "request": { "method": "GET", "url": { "raw": "{{base_url}}/client/stats", "host": ["{{base_url}}"], "path": ["client", "stats"] } } }
+      ]
+    },
+    {
+      "name": "Main",
+      "item": [
+        { "name": "Home", "request": { "method": "GET", "url": { "raw": "{{base_url}}/", "host": ["{{base_url}}"], "path": [""] } } },
+        { "name": "Services", "request": { "method": "GET", "url": { "raw": "{{base_url}}/api/services", "host": ["{{base_url}}"], "path": ["api", "services"] } } },
+        { "name": "Lawyers", "request": { "method": "GET", "url": { "raw": "{{base_url}}/api/lawyers", "host": ["{{base_url}}"], "path": ["api", "lawyers"] } } },
+        { "name": "Health", "request": { "method": "GET", "url": { "raw": "{{base_url}}/api/health", "host": ["{{base_url}}"], "path": ["api", "health"] } } }
+      ]
+    },
+    {
+      "name": "Chat",
+      "item": [
+        { "name": "Get Chat for Case", "request": { "method": "GET", "url": { "raw": "{{base_url}}/<case_id>", "host": ["{{base_url}}"], "path": ["<case_id>"] } } },
+        { "name": "Send Message in Case Chat", "request": { "method": "POST", "url": { "raw": "{{base_url}}/<case_id>/send", "host": ["{{base_url}}"], "path": ["<case_id>", "send"] } } },
+        { "name": "Get Messages for Case", "request": { "method": "GET", "url": { "raw": "{{base_url}}/api/messages/<case_id>", "host": ["{{base_url}}"], "path": ["api", "messages", "<case_id>"] } } }
+      ]
+    }
+  ]
+}
