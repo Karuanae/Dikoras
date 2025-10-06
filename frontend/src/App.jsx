@@ -44,7 +44,6 @@ import LawyerClients from './pages/LawyerClients';
 import LawyerDocuments from './pages/LawyerDocuments';
 import LawyerInvoices from './pages/LawyerInvoices';
 import LawyerProfile from './pages/LawyerProfile';
-import LawyerSettings from './pages/LawyerSettings';
 import Unauthorized from './pages/Unauthorized';
 import NotFound from './pages/NotFound';
 
@@ -119,7 +118,7 @@ function App() {
                 <Route path="documents" element={<LawyerDocuments />} />
                 <Route path="invoices" element={<LawyerInvoices />} />
                 <Route path="profile" element={<LawyerProfile />} />
-                <Route path="settings" element={<LawyerSettings />} />
+                {/* Settings route removed */}
               </Route>
               
               {/* 404 Page */}

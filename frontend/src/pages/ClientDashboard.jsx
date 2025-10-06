@@ -2,11 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   getClientCases,
-  getClientTransactionSummary,
-  getClientMessages,
-  updateCase,
-  getDocuments,
-  getInvoices,
+  getClientStats,
+  getClientNotifications,
   getUserFromStorage
 } from '../services/api';
 
@@ -14,7 +11,7 @@ import {
 export default function ClientDashboard() {
   const [activeCases, setActiveCases] = useState(0);
   const [lawyersHired, setLawyersHired] = useState(0);
-  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [cases, setCases] = useState([]);
   const [recentDocs, setRecentDocs] = useState([]);
   const [recentInvoices, setRecentInvoices] = useState([]);
@@ -44,43 +41,34 @@ export default function ClientDashboard() {
         const lawyersCount = casesArray.filter(c => c.lawyer_id).length;
         setLawyersHired(lawyersCount);
 
-        // Fetch unread messages - handle if function doesn't exist
+        // Fetch unread notifications instead of messages
         try {
-          const user = getUserFromStorage();
-          const messagesData = await getClientMessages({ user_id: user?.id });
-          const unreadCount = Array.isArray(messagesData) ? 
-            messagesData.filter(m => !m.is_read).length : 0;
-          setUnreadMessages(unreadCount);
+          const notifications = await getClientNotifications();
+          const unreadCount = Array.isArray(notifications) ? 
+            notifications.filter(n => !n.is_read).length : 0;
+          setUnreadNotifications(unreadCount);
         } catch (error) {
-          console.warn('Could not fetch messages:', error);
-          setUnreadMessages(0);
+          console.warn('Could not fetch notifications:', error);
+          setUnreadNotifications(0);
         }
 
-        // Fetch recent documents - handle if function doesn't exist
+        // Fetch client stats which should include summary data
         try {
-          const docs = await getDocuments();
-          setRecentDocs(Array.isArray(docs) ? docs.slice(0, 3) : []);
+          const statsData = await getClientStats();
+          setSummary(statsData);
+          
+          // Extract recent documents and invoices from stats if available
+          if (statsData.recentDocuments) {
+            setRecentDocs(Array.isArray(statsData.recentDocuments) ? statsData.recentDocuments.slice(0, 3) : []);
+          }
+          if (statsData.recentInvoices) {
+            setRecentInvoices(Array.isArray(statsData.recentInvoices) ? statsData.recentInvoices.slice(0, 3) : []);
+          }
         } catch (error) {
-          console.warn('Could not fetch documents:', error);
-          setRecentDocs([]);
-        }
-
-        // Fetch recent invoices - handle if function doesn't exist
-        try {
-          const invoices = await getInvoices();
-          setRecentInvoices(Array.isArray(invoices) ? invoices.slice(0, 3) : []);
-        } catch (error) {
-          console.warn('Could not fetch invoices:', error);
-          setRecentInvoices([]);
-        }
-
-        // Fetch transaction summary - handle if function doesn't exist
-        try {
-          const summaryData = await getClientTransactionSummary();
-          setSummary(summaryData);
-        } catch (error) {
-          console.warn('Could not fetch transaction summary:', error);
+          console.warn('Could not fetch stats:', error);
           setSummary(null);
+          setRecentDocs([]);
+          setRecentInvoices([]);
         }
 
       } catch (err) {
@@ -102,7 +90,7 @@ export default function ClientDashboard() {
 
   const handleViewMessages = () => {
     navigate('/client/chats');
-    setUnreadMessages(0);
+    setUnreadNotifications(0);
   };
 
   const handleFindLawyers = () => {
@@ -111,25 +99,12 @@ export default function ClientDashboard() {
 
   const handleHireLawyer = async (caseId) => {
     try {
-      await updateCase(caseId, { status: 'assigned' });
-      const casesData = await getClientCases();
-      const casesArray = Array.isArray(casesData) ? casesData : [];
-      setCases(casesArray);
-      
-      const activeCount = casesArray.filter(c => 
-        c.status === 'active' || 
-        c.status === 'assigned' || 
-        c.status === 'in_progress'
-      ).length;
-      setActiveCases(activeCount);
-      
-      const lawyersCount = casesArray.filter(c => c.lawyer_id).length;
-      setLawyersHired(lawyersCount);
-      
-      alert('Lawyer hired successfully!');
+      // Since updateCase doesn't exist, we'll navigate to the case details
+      // where the user can hire a lawyer from there
+      navigate(`/client/cases/${caseId}`);
     } catch (err) {
-      console.error('Error hiring lawyer:', err);
-      alert('Failed to hire lawyer. Please try again.');
+      console.error('Error navigating to case:', err);
+      alert('Failed to open case details. Please try again.');
     }
   };
 
@@ -166,13 +141,13 @@ export default function ClientDashboard() {
           <span className="text-green-900 font-semibold">Lawyers Hired</span>
         </div>
         <div className="bg-yellow-50 rounded-xl shadow p-6 flex flex-col items-center">
-          <span className="text-4xl font-bold text-yellow-700 mb-2">{unreadMessages}</span>
-          <span className="text-yellow-900 font-semibold">Unread Messages</span>
+          <span className="text-4xl font-bold text-yellow-700 mb-2">{unreadNotifications}</span>
+          <span className="text-yellow-900 font-semibold">Unread Notifications</span>
           <button onClick={handleViewMessages} className="mt-2 text-yellow-600 text-sm hover:underline">View Messages</button>
         </div>
         <div className="bg-purple-50 rounded-xl shadow p-6 flex flex-col items-center">
           <span className="text-4xl font-bold text-purple-700 mb-2">
-            {summary?.totalSpent ? `$${summary.totalSpent}` : '-'}
+            {summary?.totalSpent ? `$${summary.totalSpent}` : '$0'}
           </span>
           <span className="text-purple-900 font-semibold">Total Spent</span>
           <button onClick={handleViewTransactions} className="mt-2 text-purple-600 text-sm hover:underline">View Transactions</button>
@@ -186,9 +161,9 @@ export default function ClientDashboard() {
           {recentDocs.length === 0 ? (
             <span className="text-blue-700">No documents found.</span>
           ) : (
-            recentDocs.map(doc => (
-              <div key={doc.id} className="mb-2 flex justify-between items-center">
-                <span className="text-blue-700 truncate">{doc.title}</span>
+            recentDocs.map((doc, index) => (
+              <div key={index} className="mb-2 flex justify-between items-center">
+                <span className="text-blue-700 truncate">{doc.title || `Document ${index + 1}`}</span>
                 <button className="text-blue-600 hover:text-blue-800 text-sm" onClick={handleViewDocuments}>View</button>
               </div>
             ))
@@ -200,9 +175,9 @@ export default function ClientDashboard() {
           {recentInvoices.length === 0 ? (
             <span className="text-blue-700">No invoices found.</span>
           ) : (
-            recentInvoices.map(inv => (
-              <div key={inv.id} className="mb-2 flex justify-between items-center">
-                <span className="text-blue-700">Invoice #{inv.invoice_number}</span>
+            recentInvoices.map((inv, index) => (
+              <div key={index} className="mb-2 flex justify-between items-center">
+                <span className="text-blue-700">Invoice #{inv.invoice_number || inv.id || index + 1}</span>
                 <button className="text-blue-600 hover:text-blue-800 text-sm" onClick={handleViewInvoices}>View</button>
               </div>
             ))
@@ -212,9 +187,9 @@ export default function ClientDashboard() {
         <div className="bg-white rounded-xl shadow p-6 flex flex-col">
           <h2 className="text-lg font-bold text-blue-900 mb-2">Recent Transactions</h2>
           {summary?.recentTransactions && summary.recentTransactions.length > 0 ? (
-            summary.recentTransactions.slice(0, 3).map(txn => (
-              <div key={txn.id} className="mb-2 flex justify-between items-center">
-                <span className="text-blue-700">Txn #{txn.transaction_number}</span>
+            summary.recentTransactions.slice(0, 3).map((txn, index) => (
+              <div key={index} className="mb-2 flex justify-between items-center">
+                <span className="text-blue-700">Txn #{txn.transaction_number || txn.id || index + 1}</span>
                 <button className="text-blue-600 hover:text-blue-800 text-sm" onClick={handleViewTransactions}>View</button>
               </div>
             ))
@@ -251,25 +226,16 @@ export default function ClientDashboard() {
                         caseItem.status === 'resolved' || caseItem.status === 'closed' ? 'bg-green-100 text-green-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
-                        {caseItem.status.replace('_', ' ')}
+                        {caseItem.status?.replace('_', ' ') || 'Unknown'}
                       </span>
                     </td>
                     <td className="p-3">
-                      {caseItem.status === 'open' && !caseItem.lawyer_id ? (
-                        <button 
-                          onClick={() => handleHireLawyer(caseItem.id)}
-                          className="bg-green-500 hover:bg-green-600 text-white text-sm font-medium py-1 px-3 rounded"
-                        >
-                          Hire Lawyer
-                        </button>
-                      ) : (
-                        <button 
-                          onClick={() => navigate(`/client/cases/${caseItem.id}`)}
-                          className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-1 px-3 rounded"
-                        >
-                          View Details
-                        </button>
-                      )}
+                      <button 
+                        onClick={() => navigate(`/client/cases/${caseItem.id}`)}
+                        className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-1 px-3 rounded"
+                      >
+                        View Details
+                      </button>
                     </td>
                   </tr>
                 ))}

@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import {
   getLawyerCases,
   getLawyerClients,
-  getLawyerMessages,
   uploadDocumentWithFile,
   requestInvoice,
   exportTransactions
@@ -12,7 +11,6 @@ import {
 export default function LawyerDashboard() {
   const [cases, setCases] = useState([]);
   const [clients, setClients] = useState(0);
-  const [unreadMessages, setUnreadMessages] = useState(0);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -21,18 +19,17 @@ export default function LawyerDashboard() {
       try {
         setLoading(true);
         
-        // Use Promise.allSettled to handle potential API errors gracefully
-        const [casesData, clientsData, messagesData] = await Promise.allSettled([
+        // Only call endpoints that exist - REMOVED getLawyerMessages
+        const [casesData, clientsData] = await Promise.allSettled([
           getLawyerCases(),
-          getLawyerClients(),
-          getLawyerMessages()
+          getLawyerClients()
         ]);
         
-        // Handle cases data - FIXED THIS PART
+        // Handle cases data
         if (casesData.status === 'fulfilled') {
           const casesArray = Array.isArray(casesData.value) ? casesData.value : [];
           setCases(casesArray);
-          console.log('Cases loaded:', casesArray.length, casesArray); // Debug log
+          console.log('Cases loaded:', casesArray.length, casesArray);
         } else {
           console.error('Error fetching cases:', casesData.reason);
           setCases([]);
@@ -47,20 +44,11 @@ export default function LawyerDashboard() {
           setClients(0);
         }
         
-        // Handle messages data
-        if (messagesData.status === 'fulfilled') {
-          setUnreadMessages(messagesData.value.unreadCount || 0);
-        } else {
-          console.error('Error fetching messages:', messagesData.reason);
-          setUnreadMessages(0);
-        }
-        
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
         // Set empty states
         setCases([]);
         setClients(0);
-        setUnreadMessages(0);
       } finally {
         setLoading(false);
       }
@@ -76,8 +64,10 @@ export default function LawyerDashboard() {
     navigate('/lawyer/clients');
   };
 
-  const handleViewMessages = () => {
-    navigate('/lawyer/messages');
+  // REMOVED: handleViewMessages since you don't have messages endpoint
+
+  const handleViewChats = () => {
+    navigate('/lawyer/chats'); // Or whatever your chat route is
   };
 
   const handleViewCases = () => {
@@ -129,11 +119,11 @@ export default function LawyerDashboard() {
     }
   };
 
-  // Stats cards data
+  // Updated stats cards - REMOVED messages
   const stats = [
     { label: 'Total Cases', value: cases.length, color: 'blue' },
     { label: 'Active Clients', value: clients, color: 'green' },
-    { label: 'Unread Messages', value: unreadMessages, color: 'yellow' }
+    { label: 'Case Status', value: `${cases.filter(c => c.status === 'active').length} Active`, color: 'yellow' }
   ];
 
   if (loading) {
@@ -208,7 +198,7 @@ export default function LawyerDashboard() {
                     caseItem.status === 'closed' ? 'bg-gray-100 text-gray-800' :
                     'bg-blue-100 text-blue-800'
                   }`}>
-                    {caseItem.status.charAt(0).toUpperCase() + caseItem.status.slice(1)}
+                    {caseItem.status?.charAt(0).toUpperCase() + caseItem.status?.slice(1) || 'Unknown'}
                   </span>
                 </div>
                 
@@ -296,14 +286,15 @@ export default function LawyerDashboard() {
             </svg>
             Manage Clients
           </button>
+          {/* REMOVED: View Messages button since you don't have messages */}
           <button
-            className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-200 flex items-center gap-2"
-            onClick={handleViewMessages}
+            className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-200 flex items-center gap-2"
+            onClick={handleViewChats}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
-            View Messages {unreadMessages > 0 && `(${unreadMessages})`}
+            View Chats
           </button>
           <button
             className="bg-blue-400 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-200 flex items-center gap-2"

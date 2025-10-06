@@ -13,7 +13,6 @@ const AUTH_BASE = '/auth';
 // Attach JWT token to requests
 axios.interceptors.request.use(
   (config) => {
-    // Check both 'token' and 'access_token' for compatibility
     const token = localStorage.getItem('access_token') || localStorage.getItem('token');
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
@@ -28,15 +27,12 @@ axios.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Only redirect if we're not already on login page
       const currentPath = window.location.pathname;
       if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
         console.log('Authentication failed, redirecting to login');
-        // Clear storage
         localStorage.removeItem('token');
         localStorage.removeItem('access_token');
         localStorage.removeItem('user');
-        // Redirect to login
         window.location.href = '/login';
       }
     }
@@ -45,15 +41,12 @@ axios.interceptors.response.use(
 );
 
 // ===== CHAT ENDPOINTS =====
-
-// Get client chats
 export async function getClientChats(params = {}) {
   const caseId = params.case_id || params.contact_id;
   if (!caseId) return [];
   
   try {
     const res = await axios.get(`/chat/api/messages/${caseId}`);
-    // Map backend fields to frontend expectations
     return Array.isArray(res.data)
       ? res.data.map(msg => ({
           id: msg.id,
@@ -67,7 +60,6 @@ export async function getClientChats(params = {}) {
       : [];
   } catch (err) {
     console.error('Error fetching client chats:', err);
-    // Don't redirect on 401, let the component handle it
     if (err.response?.status === 401) {
       throw new Error('Authentication required');
     }
@@ -75,14 +67,12 @@ export async function getClientChats(params = {}) {
   }
 }
 
-// Get lawyer chats
 export async function getLawyerChats(params = {}) {
   const caseId = params.case_id || params.contact_id;
   if (!caseId) return [];
   
   try {
     const res = await axios.get(`/chat/api/messages/${caseId}`);
-    // Map backend fields to frontend expectations
     return Array.isArray(res.data)
       ? res.data.map(msg => ({
           id: msg.id,
@@ -96,7 +86,6 @@ export async function getLawyerChats(params = {}) {
       : [];
   } catch (err) {
     console.error('Error fetching lawyer chats:', err);
-    // Don't redirect on 401, let the component handle it
     if (err.response?.status === 401) {
       throw new Error('Authentication required');
     }
@@ -104,7 +93,6 @@ export async function getLawyerChats(params = {}) {
   }
 }
 
-// Send chat message with file attachment
 export async function sendChatWithAttachment({ case_id, chat, file }) {
   if (!case_id || (!chat && !file)) throw new Error('Missing case_id or content');
   
@@ -126,7 +114,6 @@ export async function sendChatWithAttachment({ case_id, chat, file }) {
   }
 }
 
-// Get unread chat count for a case
 export async function getUnreadChatsCount(caseId) {
   if (!caseId) return 0;
   try {
@@ -140,7 +127,6 @@ export async function getUnreadChatsCount(caseId) {
   }
 }
 
-// Create a direct chat case for lawyer-client communication
 export async function createDirectChatCase(data) {
   try {
     const res = await axios.post(`${LAWYER_BASE}/direct-chat-case`, data);
@@ -164,7 +150,7 @@ export async function getAdminDashboard() {
   const res = await axios.get(`${ADMIN_BASE}/dashboard`);
   return res.data;
 }
-// Add this function for creating legal services
+
 export async function addLegalService(serviceData) {
   try {
     const res = await axios.post(`${ADMIN_BASE}/legal-services`, serviceData);
@@ -175,7 +161,6 @@ export async function addLegalService(serviceData) {
   }
 }
 
-// Add this function for assigning lawyers to cases
 export async function assignLawyersToCase(caseId, lawyerIds) {
   try {
     const res = await axios.post(`${ADMIN_BASE}/cases/${caseId}/assign-lawyers`, {
@@ -187,6 +172,7 @@ export async function assignLawyersToCase(caseId, lawyerIds) {
     throw err;
   }
 }
+
 export async function getActivityLogs() {
   const res = await axios.get(`${ADMIN_BASE}/activity-logs`);
   return res.data;
@@ -201,7 +187,6 @@ export async function deactivateLawyer(lawyerId) {
 }
 
 export async function getLawyers() {
-  // Fetch all lawyers for admin dashboard assignment
   const res = await axios.get(`/user/?user_type=lawyer`);
   return res.data;
 }
@@ -218,13 +203,11 @@ export async function getCases() {
 
 // ===== USER ENDPOINTS =====
 export async function registerUser(data) {
-  // Map frontend fields to backend - handle both frontend and backend field names
   const payload = {
     username: data.username || '',
     email: data.email || '',
     password: data.password || '',
     confirm_password: data.confirm_password || data.confirmPassword || '',
-    // Handle both frontend (firstName) and backend (first_name) field names
     first_name: data.first_name || data.firstName || '',
     last_name: data.last_name || data.lastName || '',
     user_type: data.user_type || data.role || 'client',
@@ -245,12 +228,12 @@ export async function registerLawyer(data) {
 }
 
 export async function updateUser(userId, data) {
-  const res = await axios.patch(`/user/${userId}/`, data); // Add trailing slash to avoid CORS redirect
+  const res = await axios.patch(`/user/${userId}/`, data);
   return res.data;
 }
 
 export async function getUserById(userId) {
-  const res = await axios.get(`/user/${userId}/`); // Add trailing slash to avoid CORS redirect
+  const res = await axios.get(`/user/${userId}/`);
   return res.data;
 }
 
@@ -260,15 +243,13 @@ export async function loginUser(data) {
     username: data.username || data.email,
     password: data.password,
   };
-  const res = await axios.post(`/auth/login`, payload); // Corrected to match backend blueprint
+  const res = await axios.post(`/auth/login`, payload);
   
-  // Store token consistently
   if (res.data && res.data.access_token) {
     localStorage.setItem('access_token', res.data.access_token);
-    localStorage.setItem('token', res.data.access_token); // For backward compatibility
+    localStorage.setItem('token', res.data.access_token);
   }
   
-  // Map backend fields to frontend expectations
   if (res.data && res.data.user) {
     const user = res.data.user;
     const userData = {
@@ -290,7 +271,7 @@ export async function loginUser(data) {
 }
 
 export async function fetchCurrentUser() {
-  const res = await axios.get(`/auth/current_user`); // Corrected to match backend blueprint
+  const res = await axios.get(`/auth/current_user`);
   if (res.data) {
     const user = res.data;
     return {
@@ -307,8 +288,7 @@ export async function fetchCurrentUser() {
 }
 
 export async function logoutUser() {
-  const response = await axios.delete(`/auth/logout`); // Corrected to match backend blueprint
-  // Clear local storage
+  const response = await axios.delete(`/auth/logout`);
   localStorage.removeItem('token');
   localStorage.removeItem('access_token');
   localStorage.removeItem('user');
@@ -359,72 +339,6 @@ export async function getClientStats() {
   return res.data;
 }
 
-// ===== NEW CLIENT ENDPOINTS =====
-export async function getClientMessages(params = {}) {
-  try {
-    const res = await axios.get(`${CLIENT_BASE}/messages`, { params });
-    return res.data;
-  } catch (err) {
-    // If endpoint doesn't exist, return a mock response
-    if (err.response?.status === 404) {
-      return [];
-    }
-    throw err;
-  }
-}
-
-export async function getClientTransactionSummary() {
-  try {
-    const res = await axios.get(`${CLIENT_BASE}/transactions/summary`);
-    return res.data;
-  } catch (err) {
-    // If endpoint doesn't exist, return a mock response
-    if (err.response?.status === 404) {
-      return {
-        totalSpent: 0,
-        recentTransactions: []
-      };
-    }
-    throw err;
-  }
-}
-
-export async function getDocuments(params = {}) {
-  try {
-    const res = await axios.get(`${CLIENT_BASE}/documents`, { params });
-    return res.data;
-  } catch (err) {
-    // If endpoint doesn't exist, return a mock response
-    if (err.response?.status === 404) {
-      return [];
-    }
-    throw err;
-  }
-}
-
-export async function getInvoices(params = {}) {
-  try {
-    const res = await axios.get(`${CLIENT_BASE}/invoices`, { params });
-    return res.data;
-  } catch (err) {
-    // If endpoint doesn't exist, return a mock response
-    if (err.response?.status === 404) {
-      return [];
-    }
-    throw err;
-  }
-}
-
-export async function updateCase(caseId, data) {
-  try {
-    const res = await axios.put(`${CLIENT_BASE}/cases/${caseId}`, data);
-    return res.data;
-  } catch (err) {
-    console.error('Error updating case:', err);
-    throw err;
-  }
-}
-
 export async function createClientCase(data) {
   try {
     const res = await axios.post(`${CLIENT_BASE}/cases`, data);
@@ -436,26 +350,11 @@ export async function createClientCase(data) {
 }
 export const createCase = createClientCase;
 
-export async function getClientTransactions(params = {}) {
-  try {
-    const res = await axios.get(`${CLIENT_BASE}/transactions`, { params });
-    return res.data;
-  } catch (err) {
-    // If endpoint doesn't exist, return a mock response
-    if (err.response?.status === 404) {
-      return [];
-    }
-    throw err;
-  }
-}
-
-
 export async function getClientNotifications(params = {}) {
   try {
     const res = await axios.get(`${CLIENT_BASE}/notifications`, { params });
     return res.data;
   } catch (err) {
-    // If endpoint doesn't exist, return a mock response
     if (err.response?.status === 404) {
       return [];
     }
@@ -476,16 +375,6 @@ export async function markNotificationAsRead(notificationId) {
 // ===== LAWYER ENDPOINTS =====
 export async function getLawyerDashboard() {
   const res = await axios.get(`${LAWYER_BASE}/dashboard`);
-  return res.data;
-}
-
-export async function getLawyerProfile() {
-  const res = await axios.get(`${LAWYER_BASE}/profile`);
-  return res.data;
-}
-
-export async function updateLawyerProfile(data) {
-  const res = await axios.put(`${LAWYER_BASE}/profile`, data);
   return res.data;
 }
 
@@ -565,33 +454,6 @@ export async function getLawyerClients() {
   }
 }
 
-export async function getLawyerMessages(params = {}) {
-  try {
-    const res = await axios.get(`${LAWYER_BASE}/messages`, { params });
-    return res.data;
-  } catch (err) {
-    // If endpoint doesn't exist, return a mock response
-    if (err.response?.status === 404) {
-      return { unreadCount: 0, messages: [] };
-    }
-    throw err;
-  }
-}
-
-export async function sendLawyerMessage(data) {
-  return axios.post(`${LAWYER_BASE}/messages`, data);
-}
-
-export async function getLawyerSettings() {
-  // Alias for lawyer profile
-  return getLawyerProfile();
-}
-
-export async function updateLawyerSettings(data) {
-  // Alias for lawyer profile update
-  return updateLawyerProfile(data);
-}
-
 // ===== UTILITY FUNCTIONS =====
 export const getAuthToken = () => {
   return localStorage.getItem('access_token') || localStorage.getItem('token');
@@ -643,7 +505,6 @@ export async function requestInvoice({ case_id, amount, description, tax_amount,
 // Export transactions as CSV (downloads file)
 export async function exportTransactions() {
   const res = await axios.get(`/transaction/export`, { responseType: 'blob' });
-  // Create a link and trigger download
   const url = window.URL.createObjectURL(new Blob([res.data]));
   const link = document.createElement('a');
   link.href = url;
@@ -692,82 +553,4 @@ export async function getPriorityOptions() {
     { value: 'high', label: 'High' },
     { value: 'urgent', label: 'Urgent' }
   ];
-}
-
-// ===== PAYMENT ENDPOINTS =====
-export async function createPaymentIntent(amount, caseId) {
-  const res = await axios.post('/payment/create-intent', {
-    amount,
-    case_id: caseId
-  });
-  return res.data;
-}
-
-export async function confirmPayment(paymentIntentId) {
-  const res = await axios.post('/payment/confirm', {
-    payment_intent_id: paymentIntentId
-  });
-  return res.data;
-}
-
-export async function getPaymentMethods() {
-  const res = await axios.get('/payment/methods');
-  return res.data;
-}
-
-// ===== NOTIFICATION ENDPOINTS =====
-export async function getUnreadNotificationsCount() {
-  try {
-    const user = getUserFromStorage();
-    if (!user) return 0;
-    
-    if (user.role === 'client') {
-      const notifications = await getClientNotifications();
-      return Array.isArray(notifications) ? notifications.filter(n => !n.is_read).length : 0;
-    } else if (user.role === 'lawyer') {
-      const notifications = await getLawyerNotifications();
-      return Array.isArray(notifications) ? notifications.filter(n => !n.is_read).length : 0;
-    }
-    return 0;
-  } catch (err) {
-    console.error('Error getting unread notifications count:', err);
-    return 0;
-  }
-}
-
-export async function markAllNotificationsAsRead() {
-  try {
-    const user = getUserFromStorage();
-    if (!user) return;
-    
-    if (user.role === 'client') {
-      await axios.post(`${CLIENT_BASE}/notifications/mark-all-read`);
-    } else if (user.role === 'lawyer') {
-      await axios.post(`${LAWYER_BASE}/notifications/mark-all-read`);
-    }
-  } catch (err) {
-    console.error('Error marking all notifications as read:', err);
-  }
-}
-
-// ===== SEARCH ENDPOINTS =====
-export async function searchLawyers(query, filters = {}) {
-  const res = await axios.get('/search/lawyers', {
-    params: { q: query, ...filters }
-  });
-  return res.data;
-}
-
-export async function searchCases(query, filters = {}) {
-  const res = await axios.get('/search/cases', {
-    params: { q: query, ...filters }
-  });
-  return res.data;
-}
-
-export async function searchDocuments(query, filters = {}) {
-  const res = await axios.get('/search/documents', {
-    params: { q: query, ...filters }
-  });
-  return res.data;
 }

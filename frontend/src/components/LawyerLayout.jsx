@@ -9,7 +9,6 @@ const sidebarLinks = [
   { name: 'Documents', path: '/lawyer/documents' },
   { name: 'Invoices', path: '/lawyer/invoices' },
   { name: 'Profile', path: '/lawyer/profile' },
-  { name: 'Settings', path: '/lawyer/settings' },
 ];
 
 export default function LawyerLayout() {
