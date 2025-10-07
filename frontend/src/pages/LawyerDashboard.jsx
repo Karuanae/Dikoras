@@ -12,6 +12,7 @@ export default function LawyerDashboard() {
   const [cases, setCases] = useState([]);
   const [clients, setClients] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('overview');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -19,25 +20,21 @@ export default function LawyerDashboard() {
       try {
         setLoading(true);
         
-        // Only call endpoints that exist - REMOVED getLawyerMessages
         const [casesData, clientsData] = await Promise.allSettled([
           getLawyerCases(),
           getLawyerClients()
         ]);
         
-        // Handle cases data
         if (casesData.status === 'fulfilled') {
           const casesArray = Array.isArray(casesData.value) ? casesData.value : [];
           setCases(casesArray);
-          console.log('Cases loaded:', casesArray.length, casesArray);
         } else {
           console.error('Error fetching cases:', casesData.reason);
           setCases([]);
         }
         
-        // Handle clients data
         if (clientsData.status === 'fulfilled') {
-          const clientsArray = Array.isArray(clientsData.value) ? clientsData.value : [];
+          const clientsArray = Array.isArray(clientsData.value) ? clientsArray.value : [];
           setClients(clientsArray.length);
         } else {
           console.error('Error fetching clients:', clientsData.reason);
@@ -46,7 +43,6 @@ export default function LawyerDashboard() {
         
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
-        // Set empty states
         setCases([]);
         setClients(0);
       } finally {
@@ -56,29 +52,81 @@ export default function LawyerDashboard() {
     fetchStats();
   }, []);
 
-  const handleAddCase = () => {
-    navigate('/lawyer/cases/new');
-  };
+  // Enhanced stats with better calculations
+  const activeCases = cases.filter(c => c.status === 'active' || c.status === 'in_progress').length;
+  const pendingCases = cases.filter(c => c.status === 'pending').length;
+  const completedCases = cases.filter(c => c.status === 'completed' || c.status === 'closed').length;
 
-  const handleManageClients = () => {
-    navigate('/lawyer/clients');
-  };
+  const stats = [
+    { 
+      label: 'Total Cases', 
+      value: cases.length, 
+      change: '+12%', 
+      icon: '📁',
+      color: 'blue',
+      description: 'All assigned cases'
+    },
+    { 
+      label: 'Active Clients', 
+      value: clients, 
+      change: '+5%', 
+      icon: '👥',
+      color: 'green',
+      description: 'Current clients'
+    },
+    { 
+      label: 'Active Cases', 
+      value: activeCases, 
+      change: '+8%', 
+      icon: '⚡',
+      color: 'yellow',
+      description: 'In progress'
+    },
+    { 
+      label: 'Completed', 
+      value: completedCases, 
+      change: '+15%', 
+      icon: '✅',
+      color: 'purple',
+      description: 'Resolved cases'
+    }
+  ];
 
-  // REMOVED: handleViewMessages since you don't have messages endpoint
+  const quickActions = [
+    {
+      name: 'Add New Case',
+      icon: '➕',
+      description: 'Create new legal case',
+      action: () => navigate('/lawyer/cases/new'),
+      color: 'from-green-500 to-emerald-600',
+      bgColor: 'bg-gradient-to-r from-green-500 to-emerald-600'
+    },
+    {
+      name: 'Manage Clients',
+      icon: '👥',
+      description: 'View all clients',
+      action: () => navigate('/lawyer/clients'),
+      color: 'from-blue-500 to-cyan-600',
+      bgColor: 'bg-gradient-to-r from-blue-500 to-cyan-600'
+    },
+    {
+      name: 'View Chats',
+      icon: '💬',
+      description: 'Client communications',
+      action: () => navigate('/lawyer/chats'),
+      color: 'from-purple-500 to-indigo-600',
+      bgColor: 'bg-gradient-to-r from-purple-500 to-indigo-600'
+    },
+    {
+      name: 'Documents',
+      icon: '📄',
+      description: 'Legal documents',
+      action: () => navigate('/lawyer/documents'),
+      color: 'from-orange-500 to-red-600',
+      bgColor: 'bg-gradient-to-r from-orange-500 to-red-600'
+    }
+  ];
 
-  const handleViewChats = () => {
-    navigate('/lawyer/chats'); // Or whatever your chat route is
-  };
-
-  const handleViewCases = () => {
-    navigate('/lawyer/cases');
-  };
-
-  const handleViewProfile = () => {
-    navigate('/lawyer/profile');
-  };
-
-  // New handlers for improvements
   const handleDocumentUpload = async (caseId) => {
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
@@ -87,6 +135,7 @@ export default function LawyerDashboard() {
       if (!file) return;
       try {
         await uploadDocumentWithFile({ case_id: caseId, file });
+        // Show success notification
         alert('Document uploaded successfully!');
       } catch (err) {
         alert('Upload failed: ' + (err.response?.data?.error || err.message));
@@ -119,192 +168,203 @@ export default function LawyerDashboard() {
     }
   };
 
-  // Updated stats cards - REMOVED messages
-  const stats = [
-    { label: 'Total Cases', value: cases.length, color: 'blue' },
-    { label: 'Active Clients', value: clients, color: 'green' },
-    { label: 'Case Status', value: `${cases.filter(c => c.status === 'active').length} Active`, color: 'yellow' }
-  ];
-
   if (loading) {
     return (
-      <div className="p-6 bg-gray-50 min-h-screen flex items-center justify-center">
-        <div className="text-blue-700 text-lg">Loading dashboard...</div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg font-semibold">Loading your legal dashboard...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="p-8">
       {/* Header Section */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8">
-        <div className="mb-4 lg:mb-0">
-          <h1 className="text-3xl font-extrabold text-blue-900 mb-2">Lawyer Dashboard</h1>
-          <p className="text-lg text-blue-700">Welcome to your dashboard. Here you can manage your cases, clients, and profile.</p>
+        <div className="mb-6 lg:mb-0">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-800 to-blue-600 bg-clip-text text-transparent mb-3">
+            Lawyer Dashboard
+          </h1>
+          <p className="text-lg text-gray-600 max-w-2xl">
+            Welcome back! Here's an overview of your legal practice, cases, and client interactions.
+          </p>
         </div>
-        <button
-          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-200 flex items-center gap-2"
-          onClick={handleViewProfile}
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
-          View Profile
-        </button>
+        
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={handleExportTransactions}
+            className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-2xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
+          >
+            <span>📊</span>
+            <span>Export Data</span>
+          </button>
+          <button
+            onClick={() => navigate('/lawyer/profile')}
+            className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-2xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
+          >
+            <span>👤</span>
+            <span>View Profile</span>
+          </button>
+        </div>
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
         {stats.map((stat, index) => (
-          <div key={index} className={`bg-${stat.color}-50 border border-${stat.color}-200 rounded-xl p-6`}>
-            <div className="text-center">
-              <div className={`text-3xl font-bold text-${stat.color}-900 mb-2`}>{stat.value}</div>
-              <div className={`text-${stat.color}-700 font-medium`}>{stat.label}</div>
+          <div 
+            key={index}
+            className="bg-white/80 backdrop-blur-lg rounded-3xl p-6 border border-gray-200/50 shadow-lg hover:shadow-xl transition-all duration-300 group hover:transform hover:-translate-y-1"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className={`w-12 h-12 rounded-2xl bg-gradient-to-r ${stat.color === 'blue' ? 'from-blue-500 to-blue-600' : stat.color === 'green' ? 'from-green-500 to-green-600' : stat.color === 'yellow' ? 'from-yellow-500 to-yellow-600' : 'from-purple-500 to-purple-600'} flex items-center justify-center text-white text-lg`}>
+                {stat.icon}
+              </div>
+              <span className="text-sm font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-full">
+                {stat.change}
+              </span>
+            </div>
+            
+            <div>
+              <div className="text-3xl font-bold text-gray-900 mb-1">{stat.value}</div>
+              <div className="text-sm font-semibold text-gray-700 mb-1">{stat.label}</div>
+              <div className="text-xs text-gray-500">{stat.description}</div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Recent Cases Section */}
+      {/* Quick Actions */}
       <div className="mb-8">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold text-blue-900">Recent Cases</h2>
-          <span className="text-blue-700">Total: {cases.length} cases</span>
-        </div>
-
-        {cases.length === 0 ? (
-          <div className="bg-white rounded-xl p-8 border border-blue-200 text-center">
-            <svg className="w-16 h-16 text-blue-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <h3 className="text-xl font-semibold text-blue-900 mb-2">No Cases Found</h3>
-            <p className="text-blue-700 mb-4">Get started by adding your first case.</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Quick Actions</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {quickActions.map((action, index) => (
             <button
-              className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg transition-all duration-200"
-              onClick={handleAddCase}
+              key={index}
+              onClick={action.action}
+              className="group text-left bg-white/80 backdrop-blur-lg rounded-3xl p-6 border border-gray-200/50 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1"
             >
-              Add Your First Case
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {cases.slice(0, 6).map(caseItem => (
-              <div key={caseItem.id} className="bg-white rounded-xl p-6 border border-blue-200 shadow-sm hover:shadow-md transition-shadow duration-200">
-                <div className="flex justify-between items-start mb-3">
-                  <h3 className="font-bold text-lg text-blue-900 truncate">{caseItem.title}</h3>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    caseItem.status === 'active' ? 'bg-green-100 text-green-800' :
-                    caseItem.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                    caseItem.status === 'closed' ? 'bg-gray-100 text-gray-800' :
-                    'bg-blue-100 text-blue-800'
-                  }`}>
-                    {caseItem.status?.charAt(0).toUpperCase() + caseItem.status?.slice(1) || 'Unknown'}
-                  </span>
-                </div>
-                
-                <div className="space-y-2 mb-4">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-blue-600">Case #:</span>
-                    <span className="text-blue-900 font-medium">{caseItem.case_number}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-blue-600">Service:</span>
-                    <span className="text-blue-900">{caseItem.legal_service || '-'}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-blue-600">Priority:</span>
-                    <span className="text-blue-900">{caseItem.priority || '-'}</span>
-                  </div>
-                  {caseItem.budget && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-blue-600">Budget:</span>
-                      <span className="text-blue-900 font-medium">${caseItem.budget}</span>
-                    </div>
-                  )}
-                  {caseItem.deadline && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-blue-600">Deadline:</span>
-                      <span className="text-blue-900">{new Date(caseItem.deadline).toLocaleDateString()}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <button
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm flex items-center justify-center gap-1 transition-all duration-200"
-                    onClick={() => handleDocumentUpload(caseItem.id)}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                    Upload Document
-                  </button>
-                  <button
-                    className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg text-sm flex items-center justify-center gap-1 transition-all duration-200"
-                    onClick={() => handleRequestInvoice(caseItem.id)}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l6-6m-5.5 5.5h.01M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-5l-3 3m0 0l-3-3m3 3V4" />
-                    </svg>
-                    Request Invoice
-                  </button>
-                </div>
+              <div className={`w-14 h-14 rounded-2xl ${action.bgColor} flex items-center justify-center text-white text-2xl mb-4 group-hover:scale-110 transition-transform duration-300`}>
+                {action.icon}
               </div>
-            ))}
-          </div>
-        )}
+              <h3 className="font-bold text-gray-900 text-lg mb-2">{action.name}</h3>
+              <p className="text-gray-600 text-sm">{action.description}</p>
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="bg-white rounded-xl p-6 border border-blue-200">
-        <h3 className="text-xl font-bold text-blue-900 mb-4">Quick Actions</h3>
-        <div className="flex flex-wrap gap-4">
-          <button
-            className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-200 flex items-center gap-2"
-            onClick={handleAddCase}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Add New Case
-          </button>
-          <button
-            className="bg-gray-700 hover:bg-gray-900 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-200 flex items-center gap-2"
-            onClick={handleExportTransactions}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Export Transactions
-          </button>
-          <button
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-200 flex items-center gap-2"
-            onClick={handleManageClients}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-            Manage Clients
-          </button>
-          {/* REMOVED: View Messages button since you don't have messages */}
-          <button
-            className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-200 flex items-center gap-2"
-            onClick={handleViewChats}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-            View Chats
-          </button>
-          <button
-            className="bg-blue-400 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-200 flex items-center gap-2"
-            onClick={handleViewCases}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            View All Cases
-          </button>
+      {/* Recent Cases Section */}
+      <div className="bg-white/80 backdrop-blur-lg rounded-3xl border border-gray-200/50 shadow-lg overflow-hidden">
+        <div className="p-6 border-b border-gray-200/50">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Recent Cases</h2>
+              <p className="text-gray-600">Your most recent legal cases and matters</p>
+            </div>
+            <div className="flex items-center space-x-4 mt-4 lg:mt-0">
+              <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                {cases.length} Total Cases
+              </span>
+              <button
+                onClick={() => navigate('/lawyer/cases')}
+                className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl font-semibold text-sm shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
+              >
+                View All
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6">
+          {cases.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="w-24 h-24 bg-gray-100 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                <span className="text-4xl">📁</span>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-3">No Cases Yet</h3>
+              <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                Start building your legal practice by adding your first case. Manage client matters, track progress, and deliver exceptional service.
+              </p>
+              <button
+                onClick={() => navigate('/lawyer/cases/new')}
+                className="px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-2xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
+              >
+                Add Your First Case
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {cases.slice(0, 6).map(caseItem => (
+                <div 
+                  key={caseItem.id}
+                  className="bg-white rounded-2xl border border-gray-200/70 p-6 shadow-lg hover:shadow-xl transition-all duration-300 group hover:transform hover:-translate-y-1"
+                >
+                  {/* Case Header */}
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="font-bold text-gray-900 text-lg truncate flex-1 mr-3">
+                      {caseItem.title}
+                    </h3>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      caseItem.status === 'active' ? 'bg-green-100 text-green-800' :
+                      caseItem.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                      caseItem.status === 'closed' ? 'bg-gray-100 text-gray-800' :
+                      'bg-blue-100 text-blue-800'
+                    }`}>
+                      {caseItem.status?.charAt(0).toUpperCase() + caseItem.status?.slice(1) || 'Unknown'}
+                    </span>
+                  </div>
+                  
+                  {/* Case Details */}
+                  <div className="space-y-3 mb-6">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Case #</span>
+                      <span className="text-sm font-semibold text-gray-900">{caseItem.case_number}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Service</span>
+                      <span className="text-sm text-gray-900">{caseItem.legal_service || 'General'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Priority</span>
+                      <span className={`text-sm font-semibold ${
+                        caseItem.priority === 'high' ? 'text-red-600' :
+                        caseItem.priority === 'medium' ? 'text-yellow-600' :
+                        'text-green-600'
+                      }`}>
+                        {caseItem.priority || 'Normal'}
+                      </span>
+                    </div>
+                    {caseItem.budget && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Budget</span>
+                        <span className="text-sm font-semibold text-gray-900">${caseItem.budget}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleDocumentUpload(caseItem.id)}
+                      className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 py-2 rounded-xl text-sm font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center space-x-1"
+                    >
+                      <span>📎</span>
+                      <span>Upload</span>
+                    </button>
+                    <button
+                      onClick={() => handleRequestInvoice(caseItem.id)}
+                      className="flex-1 bg-gradient-to-r from-purple-500 to-purple-600 text-white px-3 py-2 rounded-xl text-sm font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center space-x-1"
+                    >
+                      <span>💰</span>
+                      <span>Invoice</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

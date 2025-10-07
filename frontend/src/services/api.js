@@ -514,6 +514,144 @@ export async function exportTransactions() {
   link.remove();
 }
 
+// ===== ADMIN CHAT ENDPOINTS =====
+export async function getAdminChatActivities() {
+  try {
+    const res = await axios.get(`${ADMIN_BASE}/chat-activities`);
+    return res.data;
+  } catch (err) {
+    console.error('Error fetching admin chat activities:', err);
+    throw err;
+  }
+}
+
+export async function getAllChatsForAdmin() {
+  try {
+    const res = await axios.get(`${ADMIN_BASE}/all-chats`);
+    return res.data;
+  } catch (err) {
+    console.error('Error fetching all chats:', err);
+    throw err;
+  }
+}
+
+// Helper function to get chat messages for a specific case (for admin)
+export async function getChatMessagesForAdmin(caseId) {
+  try {
+    const res = await axios.get(`/chat/api/messages/${caseId}`);
+    return res.data;
+  } catch (err) {
+    console.error(`Error fetching chats for case ${caseId}:`, err);
+    throw err;
+  }
+}
+
+// ===== DOCUMENT ENDPOINTS =====
+
+// Get documents for a client
+export async function getClientDocuments(params = {}) {
+  try {
+    const response = await axios.get('/document/', { params });
+    return response.data;
+  } catch (err) {
+    console.error('Error fetching client documents:', err);
+    throw err;
+  }
+}
+
+// Get documents for a specific case
+export async function getCaseDocuments(caseId) {
+  try {
+    const response = await axios.get('/document/', { params: { case_id: caseId } });
+    return response.data;
+  } catch (err) {
+    console.error('Error fetching case documents:', err);
+    throw err;
+  }
+}
+
+// Download a document
+export async function downloadDocument(documentId) {
+  try {
+    const response = await axios.get(`/document/download/${documentId}`, {
+      responseType: 'blob' // Important for file downloads
+    });
+    
+    // Create download link from blob
+    const blob = new Blob([response.data]);
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // Extract filename from response headers or use default
+    const contentDisposition = response.headers['content-disposition'];
+    let filename = `document-${documentId}`;
+    
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+      if (filenameMatch) {
+        filename = filenameMatch[1];
+      }
+    }
+    
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+    
+    return { success: true, filename };
+  } catch (err) {
+    console.error('Download error:', err);
+    throw new Error('Failed to download document');
+  }
+}
+
+// Upload document (enhanced version)
+export async function uploadDocument(data) {
+  try {
+    const formData = new FormData();
+    
+    // Append file if provided
+    if (data.file) {
+      formData.append('file', data.file);
+    }
+    
+    // Append other data as JSON
+    const documentData = {
+      title: data.title,
+      document_type: data.document_type,
+      description: data.description,
+      is_confidential: data.is_confidential || false
+    };
+    
+    formData.append('data', JSON.stringify(documentData));
+    
+    const response = await axios.post(`/document/upload/${data.case_id}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    
+    return response.data;
+  } catch (err) {
+    console.error('Upload error:', err);
+    throw err;
+  }
+}
+
+// Get document details
+export async function getDocument(documentId) {
+  try {
+    const response = await axios.get(`/document/${documentId}`);
+    return response.data;
+  } catch (err) {
+    console.error('Error fetching document:', err);
+    throw err;
+  }
+}
+
+
 // ===== COMMON ENDPOINTS =====
 export async function uploadFile(file, caseId = null) {
   const formData = new FormData();

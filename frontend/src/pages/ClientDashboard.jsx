@@ -7,7 +7,6 @@ import {
   getUserFromStorage
 } from '../services/api';
 
-// Client Dashboard Component
 export default function ClientDashboard() {
   const [activeCases, setActiveCases] = useState(0);
   const [lawyersHired, setLawyersHired] = useState(0);
@@ -15,6 +14,7 @@ export default function ClientDashboard() {
   const [cases, setCases] = useState([]);
   const [recentDocs, setRecentDocs] = useState([]);
   const [recentInvoices, setRecentInvoices] = useState([]);
+  const [recentTransactions, setRecentTransactions] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -24,51 +24,70 @@ export default function ClientDashboard() {
       try {
         setLoading(true);
         
-        // Fetch cases
-        const casesData = await getClientCases();
+        const [casesData, statsData, notificationsData] = await Promise.all([
+          getClientCases().catch(err => { console.error('Cases error:', err); return []; }),
+          getClientStats().catch(err => { console.error('Stats error:', err); return {}; }),
+          getClientNotifications().catch(err => { console.error('Notifications error:', err); return []; })
+        ]);
+        
+        // Process cases data
         const casesArray = Array.isArray(casesData) ? casesData : [];
         setCases(casesArray);
         
-        // Calculate active cases and lawyers hired
         const activeCount = casesArray.filter(c => 
-          c.status === 'active' || 
-          c.status === 'open' || 
-          c.status === 'assigned' || 
-          c.status === 'in_progress'
+          ['active', 'open', 'assigned', 'in_progress'].includes(c.status)
         ).length;
         setActiveCases(activeCount);
         
-        const lawyersCount = casesArray.filter(c => c.lawyer_id).length;
+        const lawyersCount = new Set(casesArray.filter(c => c.lawyer_id).map(c => c.lawyer_id)).size;
         setLawyersHired(lawyersCount);
 
-        // Fetch unread notifications instead of messages
-        try {
-          const notifications = await getClientNotifications();
-          const unreadCount = Array.isArray(notifications) ? 
-            notifications.filter(n => !n.is_read).length : 0;
-          setUnreadNotifications(unreadCount);
-        } catch (error) {
-          console.warn('Could not fetch notifications:', error);
-          setUnreadNotifications(0);
-        }
+        // Process notifications
+        const unreadCount = Array.isArray(notificationsData) ? 
+          notificationsData.filter(n => !n.is_read).length : 0;
+        setUnreadNotifications(unreadCount);
 
-        // Fetch client stats which should include summary data
-        try {
-          const statsData = await getClientStats();
-          setSummary(statsData);
-          
-          // Extract recent documents and invoices from stats if available
-          if (statsData.recentDocuments) {
-            setRecentDocs(Array.isArray(statsData.recentDocuments) ? statsData.recentDocuments.slice(0, 3) : []);
+        // Process stats and extract data
+        setSummary(statsData);
+        
+        // Extract recent documents from cases
+        const allDocs = [];
+        casesArray.forEach(caseItem => {
+          if (caseItem.documents && Array.isArray(caseItem.documents)) {
+            allDocs.push(...caseItem.documents.map(doc => ({
+              ...doc,
+              case_title: caseItem.title
+            })));
           }
-          if (statsData.recentInvoices) {
-            setRecentInvoices(Array.isArray(statsData.recentInvoices) ? statsData.recentInvoices.slice(0, 3) : []);
+        });
+        setRecentDocs(allDocs.slice(0, 3));
+
+        // Extract recent invoices from cases
+        const allInvoices = [];
+        casesArray.forEach(caseItem => {
+          if (caseItem.invoices && Array.isArray(caseItem.invoices)) {
+            allInvoices.push(...caseItem.invoices.map(inv => ({
+              ...inv,
+              case_title: caseItem.title
+            })));
           }
-        } catch (error) {
-          console.warn('Could not fetch stats:', error);
-          setSummary(null);
-          setRecentDocs([]);
-          setRecentInvoices([]);
+        });
+        setRecentInvoices(allInvoices.slice(0, 3));
+
+        // Extract recent transactions
+        if (statsData.recentTransactions) {
+          setRecentTransactions(statsData.recentTransactions.slice(0, 3));
+        } else {
+          const transactions = casesArray
+            .filter(c => c.budget)
+            .map(c => ({
+              id: c.id,
+              transaction_number: `TXN-${c.case_number || c.id}`,
+              amount: parseFloat(c.budget),
+              status: ['resolved', 'closed'].includes(c.status) ? 'completed' : 'pending',
+              case_title: c.title
+            }));
+          setRecentTransactions(transactions.slice(0, 3));
         }
 
       } catch (err) {
@@ -90,199 +109,317 @@ export default function ClientDashboard() {
 
   const handleViewMessages = () => {
     navigate('/client/chats');
-    setUnreadNotifications(0);
   };
 
   const handleFindLawyers = () => {
     navigate('/lawyers-directory');
   };
 
-  const handleHireLawyer = async (caseId) => {
-    try {
-      // Since updateCase doesn't exist, we'll navigate to the case details
-      // where the user can hire a lawyer from there
-      navigate(`/client/cases/${caseId}`);
-    } catch (err) {
-      console.error('Error navigating to case:', err);
-      alert('Failed to open case details. Please try again.');
-    }
+  const handleQuickAction = (path) => {
+    navigate(path);
   };
 
-  // Quick links
-  const handleViewDocuments = () => navigate('/client/documents');
-  const handleViewInvoices = () => navigate('/client/invoices');
-  const handleViewTransactions = () => navigate('/client/transactions');
+  const getStatusColor = (status) => {
+    const colors = {
+      open: { bg: 'bg-yellow-100', text: 'text-yellow-800', badge: 'from-yellow-500 to-yellow-600' },
+      assigned: { bg: 'bg-blue-100', text: 'text-blue-800', badge: 'from-blue-500 to-blue-600' },
+      in_progress: { bg: 'bg-purple-100', text: 'text-purple-800', badge: 'from-purple-500 to-purple-600' },
+      resolved: { bg: 'bg-green-100', text: 'text-green-800', badge: 'from-green-500 to-green-600' },
+      closed: { bg: 'bg-gray-100', text: 'text-gray-800', badge: 'from-gray-500 to-gray-600' },
+      active: { bg: 'bg-green-100', text: 'text-green-800', badge: 'from-green-500 to-green-600' }
+    };
+    return colors[status] || colors.closed;
+  };
+
+  const quickActions = [
+    {
+      name: 'Post New Case',
+      description: 'Start a new legal case',
+      icon: '📝',
+      path: '/client/cases/new',
+      color: 'from-blue-500 to-blue-600',
+      bgColor: 'bg-gradient-to-r from-blue-500 to-blue-600'
+    },
+    {
+      name: 'View Messages',
+      description: `${unreadNotifications} unread messages`,
+      icon: '💬',
+      path: '/client/chats',
+      color: 'from-green-500 to-green-600',
+      bgColor: 'bg-gradient-to-r from-green-500 to-green-600'
+    },
+    {
+      name: 'Documents',
+      description: `${recentDocs.length} recent files`,
+      icon: '📁',
+      path: '/client/documents',
+      color: 'from-purple-500 to-purple-600',
+      bgColor: 'bg-gradient-to-r from-purple-500 to-purple-600'
+    },
+    {
+      name: 'Invoices',
+      description: `${recentInvoices.length} recent bills`,
+      icon: '🧾',
+      path: '/client/invoices',
+      color: 'from-orange-500 to-orange-600',
+      bgColor: 'bg-gradient-to-r from-orange-500 to-orange-600'
+    }
+  ];
 
   if (loading) {
     return (
-      <div className="p-6 bg-gray-50 min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-blue-900">Loading dashboard...</p>
+      <div className="p-8">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded-2xl w-64 mb-6"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="bg-gray-100 rounded-2xl p-6 h-32"></div>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+            <div className="lg:col-span-2 bg-gray-100 rounded-2xl p-6 h-64"></div>
+            <div className="bg-gray-100 rounded-2xl p-6 h-64"></div>
+          </div>
         </div>
       </div>
     );
   }
 
+  const user = getUserFromStorage();
+
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <h1 className="text-3xl font-extrabold text-blue-900 mb-2">Dashboard</h1>
-      <p className="text-lg text-blue-700 mb-6">Welcome to Dikoras! Dikoras is the easiest solution for any client to get cost-effective and high quality legal services.</p>
+    <div className="p-8">
+      {/* Welcome Header */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8">
+        <div className="mb-6 lg:mb-0">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-800 to-blue-600 bg-clip-text text-transparent mb-3">
+            Welcome back{user?.firstName ? `, ${user.firstName}` : ''}! 👋
+          </h1>
+          <p className="text-lg text-gray-600 max-w-3xl">
+            Welcome to Dikoras! The easiest solution for cost-effective, high-quality legal services. 
+            Manage your cases, communicate with lawyers, and track everything in one place.
+          </p>
+        </div>
+        
+        <button
+          onClick={handlePostCase}
+          className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-2xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 flex items-center space-x-3"
+        >
+          <span className="text-xl">🚀</span>
+          <span>Post New Case</span>
+        </button>
+      </div>
       
-      {/* Stats Section */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-        <div className="bg-blue-50 rounded-xl shadow p-6 flex flex-col items-center">
-          <span className="text-4xl font-bold text-blue-700 mb-2">{activeCases}</span>
-          <span className="text-blue-900 font-semibold">Active Cases</span>
-          <button onClick={handleViewCases} className="mt-2 text-blue-600 text-sm hover:underline">View All</button>
+      {/* Stats Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-6 border border-gray-200/50 shadow-lg hover:shadow-xl transition-all duration-300 group hover:transform hover:-translate-y-1">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 text-lg">
+              ⚖️
+            </div>
+            <span className="text-sm font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-full">
+              +5%
+            </span>
+          </div>
+          <div className="text-2xl font-bold text-gray-900 mb-1">{activeCases}</div>
+          <div className="text-sm font-semibold text-gray-700">Active Cases</div>
+          <div className="text-xs text-gray-500">Currently in progress</div>
         </div>
-        <div className="bg-green-50 rounded-xl shadow p-6 flex flex-col items-center">
-          <span className="text-4xl font-bold text-green-700 mb-2">{lawyersHired}</span>
-          <span className="text-green-900 font-semibold">Lawyers Hired</span>
+
+        <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-6 border border-gray-200/50 shadow-lg hover:shadow-xl transition-all duration-300 group hover:transform hover:-translate-y-1">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 bg-green-100 rounded-2xl flex items-center justify-center text-green-600 text-lg">
+              👨‍⚖️
+            </div>
+            <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+              {lawyersHired}
+            </span>
+          </div>
+          <div className="text-2xl font-bold text-gray-900 mb-1">{lawyersHired}</div>
+          <div className="text-sm font-semibold text-gray-700">Lawyers Hired</div>
+          <div className="text-xs text-gray-500">Working with you</div>
         </div>
-        <div className="bg-yellow-50 rounded-xl shadow p-6 flex flex-col items-center">
-          <span className="text-4xl font-bold text-yellow-700 mb-2">{unreadNotifications}</span>
-          <span className="text-yellow-900 font-semibold">Unread Notifications</span>
-          <button onClick={handleViewMessages} className="mt-2 text-yellow-600 text-sm hover:underline">View Messages</button>
+
+        <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-6 border border-gray-200/50 shadow-lg hover:shadow-xl transition-all duration-300 group hover:transform hover:-translate-y-1">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center text-purple-600 text-lg">
+              💬
+            </div>
+            <span className="text-sm font-semibold text-purple-600 bg-purple-50 px-2 py-1 rounded-full">
+              {unreadNotifications}
+            </span>
+          </div>
+          <div className="text-2xl font-bold text-gray-900 mb-1">{unreadNotifications}</div>
+          <div className="text-sm font-semibold text-gray-700">Unread Messages</div>
+          <div className="text-xs text-gray-500">Awaiting your response</div>
         </div>
-        <div className="bg-purple-50 rounded-xl shadow p-6 flex flex-col items-center">
-          <span className="text-4xl font-bold text-purple-700 mb-2">
+
+        <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-6 border border-gray-200/50 shadow-lg hover:shadow-xl transition-all duration-300 group hover:transform hover:-translate-y-1">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600 text-lg">
+              💰
+            </div>
+            <span className="text-sm font-semibold text-orange-600 bg-orange-50 px-2 py-1 rounded-full">
+              Total
+            </span>
+          </div>
+          <div className="text-2xl font-bold text-gray-900 mb-1">
             {summary?.totalSpent ? `$${summary.totalSpent}` : '$0'}
-          </span>
-          <span className="text-purple-900 font-semibold">Total Spent</span>
-          <button onClick={handleViewTransactions} className="mt-2 text-purple-600 text-sm hover:underline">View Transactions</button>
+          </div>
+          <div className="text-sm font-semibold text-gray-700">Total Spent</div>
+          <div className="text-xs text-gray-500">All legal services</div>
         </div>
       </div>
-      
-      {/* Quick Links Section */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-        <div className="bg-white rounded-xl shadow p-6 flex flex-col">
-          <h2 className="text-lg font-bold text-blue-900 mb-2">Recent Documents</h2>
-          {recentDocs.length === 0 ? (
-            <span className="text-blue-700">No documents found.</span>
-          ) : (
-            recentDocs.map((doc, index) => (
-              <div key={index} className="mb-2 flex justify-between items-center">
-                <span className="text-blue-700 truncate">{doc.title || `Document ${index + 1}`}</span>
-                <button className="text-blue-600 hover:text-blue-800 text-sm" onClick={handleViewDocuments}>View</button>
+
+      {/* Quick Actions & Recent Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        {/* Quick Actions */}
+        <div className="lg:col-span-2">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Quick Actions</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {quickActions.map((action, index) => (
+              <div 
+                key={index}
+                onClick={() => handleQuickAction(action.path)}
+                className="group bg-white/80 backdrop-blur-lg rounded-2xl p-6 border border-gray-200/50 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer"
+              >
+                <div className="flex items-center space-x-4">
+                  <div className={`w-14 h-14 rounded-2xl ${action.bgColor} flex items-center justify-center text-white text-xl group-hover:scale-110 transition-transform duration-300`}>
+                    {action.icon}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-900 text-lg group-hover:text-blue-700 transition-colors">
+                      {action.name}
+                    </h3>
+                    <p className="text-gray-600 text-sm mt-1">{action.description}</p>
+                  </div>
+                </div>
               </div>
-            ))
-          )}
-          <button className="mt-2 text-blue-600 text-sm hover:underline" onClick={handleViewDocuments}>View All Documents</button>
+            ))}
+          </div>
         </div>
-        <div className="bg-white rounded-xl shadow p-6 flex flex-col">
-          <h2 className="text-lg font-bold text-blue-900 mb-2">Recent Invoices</h2>
-          {recentInvoices.length === 0 ? (
-            <span className="text-blue-700">No invoices found.</span>
-          ) : (
-            recentInvoices.map((inv, index) => (
-              <div key={index} className="mb-2 flex justify-between items-center">
-                <span className="text-blue-700">Invoice #{inv.invoice_number || inv.id || index + 1}</span>
-                <button className="text-blue-600 hover:text-blue-800 text-sm" onClick={handleViewInvoices}>View</button>
+
+        {/* Recent Activity */}
+        <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-6 border border-gray-200/50 shadow-lg">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Recent Activity</h2>
+          <div className="space-y-4">
+            {cases.slice(0, 4).map(caseItem => {
+              const statusColor = getStatusColor(caseItem.status);
+              return (
+                <div key={caseItem.id} className="flex items-center space-x-3 p-3 bg-gray-50/50 rounded-xl border border-gray-200/30">
+                  <div className={`w-3 h-3 rounded-full bg-gradient-to-r ${statusColor.badge}`}></div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 truncate">
+                      {caseItem.title}
+                    </p>
+                    <p className="text-xs text-gray-600 capitalize">
+                      {caseItem.status?.replace('_', ' ')} • {caseItem.legal_service?.name || 'Case'}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+            {cases.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                <div className="text-4xl mb-2">📊</div>
+                <p className="text-sm">No recent activity</p>
               </div>
-            ))
-          )}
-          <button className="mt-2 text-blue-600 text-sm hover:underline" onClick={handleViewInvoices}>View All Invoices</button>
-        </div>
-        <div className="bg-white rounded-xl shadow p-6 flex flex-col">
-          <h2 className="text-lg font-bold text-blue-900 mb-2">Recent Transactions</h2>
-          {summary?.recentTransactions && summary.recentTransactions.length > 0 ? (
-            summary.recentTransactions.slice(0, 3).map((txn, index) => (
-              <div key={index} className="mb-2 flex justify-between items-center">
-                <span className="text-blue-700">Txn #{txn.transaction_number || txn.id || index + 1}</span>
-                <button className="text-blue-600 hover:text-blue-800 text-sm" onClick={handleViewTransactions}>View</button>
-              </div>
-            ))
-          ) : (
-            <span className="text-blue-700">No transactions found.</span>
-          )}
-          <button className="mt-2 text-blue-600 text-sm hover:underline" onClick={handleViewTransactions}>View All Transactions</button>
+            )}
+          </div>
         </div>
       </div>
-      
+
       {/* Recent Cases Section */}
       {cases.length > 0 && (
-        <div className="bg-white rounded-xl shadow p-6 mb-8">
-          <h2 className="text-xl font-semibold text-blue-900 mb-4">Your Recent Cases</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-blue-50">
-                  <th className="p-3 text-left text-blue-900">Case Title</th>
-                  <th className="p-3 text-left text-blue-900">Type</th>
-                  <th className="p-3 text-left text-blue-900">Status</th>
-                  <th className="p-3 text-left text-blue-900">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cases.slice(0, 3).map(caseItem => (
-                  <tr key={caseItem.id} className="border-b border-gray-100">
-                    <td className="p-3 font-medium">{caseItem.title}</td>
-                    <td className="p-3">{caseItem.legal_service || caseItem.type}</td>
-                    <td className="p-3">
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        caseItem.status === 'active' || caseItem.status === 'open' ? 'bg-yellow-100 text-yellow-800' :
-                        caseItem.status === 'assigned' || caseItem.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                        caseItem.status === 'resolved' || caseItem.status === 'closed' ? 'bg-green-100 text-green-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {caseItem.status?.replace('_', ' ') || 'Unknown'}
+        <div className="bg-white/80 backdrop-blur-lg rounded-3xl border border-gray-200/50 shadow-lg overflow-hidden mb-8">
+          <div className="p-6 border-b border-gray-200/50">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Your Recent Cases</h2>
+                <p className="text-gray-600">Latest legal matters and their status</p>
+              </div>
+              <button 
+                onClick={handleViewCases}
+                className="mt-4 lg:mt-0 px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl font-semibold text-sm shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
+              >
+                View All Cases
+              </button>
+            </div>
+          </div>
+          
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {cases.slice(0, 3).map(caseItem => {
+                const statusColor = getStatusColor(caseItem.status);
+                return (
+                  <div 
+                    key={caseItem.id}
+                    className="group bg-white rounded-2xl border border-gray-200/70 p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1"
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="font-bold text-gray-900 text-lg line-clamp-2 flex-1 group-hover:text-blue-700 transition-colors">
+                        {caseItem.title}
+                      </h3>
+                      <span className={`ml-2 px-3 py-1 rounded-full text-xs font-semibold ${statusColor.bg} ${statusColor.text}`}>
+                        {caseItem.status?.replace('_', ' ')}
                       </span>
-                    </td>
-                    <td className="p-3">
-                      <button 
-                        onClick={() => navigate(`/client/cases/${caseItem.id}`)}
-                        className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-1 px-3 rounded"
-                      >
-                        View Details
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex justify-end mt-4">
-            <button onClick={handleViewCases} className="text-blue-600 hover:text-blue-800 font-medium">View All Cases →</button>
-          </div>
-        </div>
-      )}
-      
-      {/* Action Cards Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-        {/* Post a Case */}
-        <div className="flex items-center space-x-4 bg-white p-4 rounded-xl shadow">
-          <img src="https://cdn-icons-png.flaticon.com/512/2921/2921222.png" alt="Post a Case" className="w-16 h-16" />
-          <div>
-            <h2 className="font-bold text-blue-900 text-lg mb-1">Post a Case</h2>
-            <p className="text-blue-700 text-sm">Get started by telling us about your legal needs. It only takes a minute and your information is strictly confidential.</p>
-            <button onClick={handlePostCase} className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1 px-3 rounded">Post a Case</button>
-          </div>
-        </div>
-        {/* Get Proposals */}
-        <div className="flex items-center space-x-4 bg-white p-4 rounded-xl shadow">
-          <img src="https://cdn-icons-png.flaticon.com/512/2921/2921223.png" alt="Get Proposals" className="w-16 h-16" />
-          <div>
-            <h2 className="font-bold text-blue-900 text-lg mb-1">Get Proposals</h2>
-            <p className="text-blue-700 text-sm">Our algorithm matches you with attorneys most qualified to handle your specific legal work. Review proposals and schedule free consultations.</p>
-            <button onClick={handleViewCases} className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1 px-3 rounded">View Proposals</button>
-          </div>
-        </div>
-        {/* Hire your Lawyer */}
-        <div className="flex items-center space-x-4 bg-white p-4 rounded-xl shadow md:col-span-2">
-          <img src="https://cdn-icons-png.flaticon.com/512/2921/2921224.png" alt="Hire your Lawyer" className="w-16 h-16" />
-          <div>
-            <h2 className="font-bold text-blue-900 text-lg mb-1">Hire your Lawyer</h2>
-            <p className="text-blue-700 text-sm">When you're ready, instantly hire the attorney that's right for you.</p>
-            <div className="flex space-x-2 mt-2">
-              <button onClick={handleFindLawyers} className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1 px-3 rounded">Find Lawyers</button>
-              <button onClick={handleViewMessages} className="bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-1 px-3 rounded">Message Lawyers</button>
+                    </div>
+                    
+                    <div className="space-y-3 text-sm text-gray-600 mb-6">
+                      <div className="flex justify-between items-center">
+                        <span>Case #</span>
+                        <span className="text-gray-900 font-medium">{caseItem.case_number}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Service</span>
+                        <span className="text-gray-900 font-medium">
+                          {caseItem.legal_service?.name || caseItem.service_type || 'General'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Lawyer</span>
+                        <span className="text-gray-900 font-medium">
+                          {caseItem.lawyer ? caseItem.lawyer.name || caseItem.lawyer.full_name : 'Not assigned'}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <button 
+                      onClick={() => navigate(`/client/cases/${caseItem.id}`)}
+                      className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
+                    >
+                      View Case Details
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
-      </div>
-      <div className="flex justify-center mt-8">
-        <button onClick={handlePostCase} className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-200">Post a Case & Get Free Proposals</button>
+      )}
+
+      {/* Call to Action */}
+      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl p-8 text-white shadow-2xl overflow-hidden relative">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white rounded-full -translate-y-16 translate-x-16"></div>
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white rounded-full translate-y-12 -translate-x-12"></div>
+        </div>
+        
+        <div className="relative text-center">
+          <h2 className="text-3xl font-bold mb-4">Ready to Get Legal Help?</h2>
+          <p className="text-blue-100 text-lg mb-8 max-w-2xl mx-auto">
+            Post your case today and get free proposals from qualified lawyers. 
+            It only takes a minute and your information is strictly confidential.
+          </p>
+          <button 
+            onClick={handlePostCase}
+            className="bg-white text-blue-600 hover:bg-blue-50 font-bold py-4 px-8 rounded-2xl shadow-2xl hover:shadow-3xl transform hover:-translate-y-1 transition-all duration-300 text-lg flex items-center space-x-3 mx-auto"
+          >
+            <span>🚀</span>
+            <span>Post a Case & Get Free Proposals</span>
+          </button>
+        </div>
       </div>
     </div>
   );

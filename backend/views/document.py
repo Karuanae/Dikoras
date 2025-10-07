@@ -13,7 +13,7 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-@document_bp.route('/upload/<case_id>')
+@document_bp.route('/upload/<case_id>', methods=['GET'])
 @login_required
 def upload_form(case_id):
     """Document upload form"""
@@ -40,60 +40,59 @@ def upload_post(case_id):
     
     # Check permissions
     if current_user.user_type == 'client' and case.client_id != current_user.id:
-        flash('Access denied.', 'error')
-        return redirect(url_for('main.home'))
+        return jsonify({'error': 'Access denied'}), 403
     elif current_user.user_type == 'lawyer' and case.lawyer_id != current_user.id:
-        flash('Access denied.', 'error')
-        return redirect(url_for('main.home'))
+        return jsonify({'error': 'Access denied'}), 403
     
     if 'file' not in request.files:
-        flash('No file selected.', 'error')
-        return redirect(url_for('document.upload_form', case_id=case_id))
+        return jsonify({'error': 'No file selected'}), 400
     
     file = request.files['file']
     if file.filename == '':
-        flash('No file selected.', 'error')
-        return redirect(url_for('document.upload_form', case_id=case_id))
+        return jsonify({'error': 'No file selected'}), 400
     
     if file and allowed_file(file.filename):
         try:
             filename = secure_filename(file.filename)
-            # Create unique filename
             timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S_')
             filename = timestamp + filename
             
-            # Create upload directory if it doesn't exist
             upload_folder = os.path.join('uploads', 'documents')
             os.makedirs(upload_folder, exist_ok=True)
             
             file_path = os.path.join(upload_folder, filename)
             file.save(file_path)
             
-            # Save to database
+            # Get data from form instead of JSON
             document = Document(
                 case_id=case_id,
                 uploaded_by_id=current_user.id,
-                title=request.get_json().get('title'),
-                document_type=request.get_json().get('document_type'),
+                title=request.form.get('title', f'Document {filename}'),
+                document_type=request.form.get('document_type', 'other'),
                 file_path=file_path,
-                description=request.get_json().get('description'),
-                is_confidential=bool(request.get_json().get('is_confidential'))
+                description=request.form.get('description', ''),
+                is_confidential=bool(request.form.get('is_confidential', False))
             )
             
             db.session.add(document)
             db.session.commit()
             
-            flash('Document uploaded successfully!', 'success')
-            return redirect(url_for('case.detail', case_id=case_id))
+            return jsonify({
+                'success': 'Document uploaded successfully',
+                'document': {
+                    'id': document.id,
+                    'title': document.title,
+                    'document_type': document.document_type,
+                    'file_path': document.file_path
+                }
+            }), 201
             
         except Exception as e:
             db.session.rollback()
-            flash('Error uploading document. Please try again.', 'error')
-            return redirect(url_for('document.upload_form', case_id=case_id))
+            return jsonify({'error': f'Error uploading document: {str(e)}'}), 500
     else:
-        flash('File type not allowed.', 'error')
-        return redirect(url_for('document.upload_form', case_id=case_id))
-
+        return jsonify({'error': 'File type not allowed'}), 400
+    
 @document_bp.route('/download/<document_id>')
 @login_required
 def download(document_id):

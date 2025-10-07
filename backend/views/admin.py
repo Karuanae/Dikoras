@@ -1242,6 +1242,114 @@ def toggle_user_active_status(user_id):
         db.session.rollback()
         return jsonify({'error': f'Failed to update user status: {str(e)}'}), 400
 
+@admin_bp.route('/chat-activities', methods=['GET'])
+@admin_required
+def get_chat_activities():
+    """Get recent chat activities for admin dashboard"""
+    try:
+        # Get all cases with their chats
+        cases = Case.query.order_by(db.desc(Case.updated_at)).limit(50).all()
+        
+        chat_activities = []
+        
+        for case in cases:
+            # Get the most recent chat message for this case
+            recent_chat = Chat.query.filter_by(case_id=case.id)\
+                .order_by(db.desc(Chat.created_at)).first()
+            
+            if recent_chat:
+                # Get message count
+                message_count = Chat.query.filter_by(case_id=case.id).count()
+                
+                # Get unread count (messages not read by the other party)
+                unread_count = Chat.query.filter(
+                    Chat.case_id == case.id,
+                    Chat.is_read == False,
+                    Chat.sender_id != recent_chat.sender_id  # Messages from the other party
+                ).count()
+                
+                chat_activities.append({
+                    'id': f"{case.id}-{recent_chat.id}",
+                    'case_id': case.id,
+                    'case_title': case.title,
+                    'case_number': case.case_number,
+                    'client_id': case.client_id,
+                    'client_name': case.client.get_full_name(),
+                    'lawyer_id': case.lawyer_id,
+                    'lawyer_name': case.lawyer.get_full_name() if case.lawyer else 'Unassigned',
+                    'last_message': recent_chat.message,
+                    'last_message_type': 'Client' if recent_chat.sender_id == case.client_id else 'Lawyer',
+                    'sender_name': recent_chat.sender.get_full_name(),
+                    'last_activity': recent_chat.created_at.isoformat(),
+                    'message_count': message_count,
+                    'has_unread': unread_count > 0,
+                    'unread_count': unread_count,
+                    'case_status': case.status
+                })
+            else:
+                # Include cases even if they have no chats yet
+                chat_activities.append({
+                    'id': f"case-{case.id}",
+                    'case_id': case.id,
+                    'case_title': case.title,
+                    'case_number': case.case_number,
+                    'client_id': case.client_id,
+                    'client_name': case.client.get_full_name(),
+                    'lawyer_id': case.lawyer_id,
+                    'lawyer_name': case.lawyer.get_full_name() if case.lawyer else 'Unassigned',
+                    'last_message': 'No messages yet',
+                    'last_message_type': 'None',
+                    'sender_name': 'System',
+                    'last_activity': case.created_at.isoformat(),
+                    'message_count': 0,
+                    'has_unread': False,
+                    'unread_count': 0,
+                    'case_status': case.status
+                })
+        
+        # Sort by most recent activity
+        chat_activities.sort(key=lambda x: x['last_activity'], reverse=True)
+        
+        return jsonify(chat_activities[:20])  # Return top 20 most recent
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting chat activities: {str(e)}")
+        return jsonify({'error': 'Failed to fetch chat activities'}), 500
+
+@admin_bp.route('/all-chats', methods=['GET'])
+@admin_required
+def get_all_chats():
+    """Get all chats for admin monitoring"""
+    try:
+        # Get recent chats across all cases
+        recent_chats = Chat.query.order_by(db.desc(Chat.created_at)).limit(100).all()
+        
+        chats_data = []
+        for chat in recent_chats:
+            case = Case.query.get(chat.case_id)
+            if case:
+                chats_data.append({
+                    'id': chat.id,
+                    'case_id': case.id,
+                    'case_title': case.title,
+                    'case_number': case.case_number,
+                    'sender_id': chat.sender_id,
+                    'sender_name': chat.sender.get_full_name(),
+                    'sender_type': chat.sender.user_type,
+                    'message': chat.message,
+                    'attachment': chat.attachment,
+                    'is_read': chat.is_read,
+                    'created_at': chat.created_at.isoformat(),
+                    'client_name': case.client.get_full_name(),
+                    'lawyer_name': case.lawyer.get_full_name() if case.lawyer else 'Unassigned'
+                })
+        
+        return jsonify(chats_data)
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting all chats: {str(e)}")
+        return jsonify({'error': 'Failed to fetch chats'}), 500
+
 # Legacy API endpoints (kept for backwards compatibility)
 @admin_bp.route('/api/dashboard-stats', methods=['GET'])
 @admin_required

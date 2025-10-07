@@ -6,6 +6,9 @@ export default function LawyerDocuments() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [filterCase, setFilterCase] = useState('all');
 
   useEffect(() => {
     fetchDocuments();
@@ -16,7 +19,7 @@ export default function LawyerDocuments() {
       setLoading(true);
       setError(null);
       const docs = await getLawyerDocuments();
-      setDocuments(docs);
+      setDocuments(Array.isArray(docs) ? docs : []);
     } catch (err) {
       console.error('Error fetching documents:', err);
       setError('Failed to load documents. Please try again.');
@@ -25,9 +28,33 @@ export default function LawyerDocuments() {
     }
   };
 
+  // Get unique cases and document types for filters
+  const uniqueCases = [...new Set(documents.map(doc => doc.case_title || `Case #${doc.case_id}`))];
+  const uniqueTypes = [...new Set(documents.map(doc => doc.document_type).filter(Boolean))];
+
+  // Filter documents
+  const filteredDocuments = documents.filter(doc => {
+    const matchesSearch = doc.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         doc.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         doc.case_title?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = filterType === 'all' || doc.document_type === filterType;
+    const matchesCase = filterCase === 'all' || (doc.case_title || `Case #${doc.case_id}`) === filterCase;
+    
+    return matchesSearch && matchesType && matchesCase;
+  });
+
+  // Group filtered documents by case
+  const documentsByCase = filteredDocuments.reduce((acc, doc) => {
+    const caseTitle = doc.case_title || `Case #${doc.case_id}`;
+    if (!acc[caseTitle]) {
+      acc[caseTitle] = [];
+    }
+    acc[caseTitle].push(doc);
+    return acc;
+  }, {});
+
   const handleDownload = async (document) => {
     try {
-      // Since your backend serves files from /document/download/<document_id>
       const downloadUrl = `http://localhost:5000/document/download/${document.id}`;
       window.open(downloadUrl, '_blank');
     } catch (err) {
@@ -45,7 +72,6 @@ export default function LawyerDocuments() {
       const file = e.target.files[0];
       if (!file) return;
 
-      // Validate file type
       const fileExtension = file.name.split('.').pop().toLowerCase();
       const allowedExtensions = ['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'xls', 'xlsx'];
       if (!allowedExtensions.includes(fileExtension)) {
@@ -73,7 +99,6 @@ export default function LawyerDocuments() {
         });
         
         alert('Document uploaded successfully!');
-        // Refresh the documents list
         await fetchDocuments();
       } catch (err) {
         console.error('Upload error:', err);
@@ -88,16 +113,26 @@ export default function LawyerDocuments() {
 
   const getFileIcon = (documentType) => {
     switch (documentType?.toLowerCase()) {
-      case 'pdf':
-        return '📄';
-      case 'contract':
-        return '📑';
-      case 'evidence':
-        return '📸';
-      case 'legal_document':
-        return '⚖️';
-      default:
-        return '📎';
+      case 'pdf': return '📄';
+      case 'contract': return '📑';
+      case 'evidence': return '📸';
+      case 'legal_document': return '⚖️';
+      case 'brief': return '📋';
+      case 'motion': return '📝';
+      case 'pleading': return '📜';
+      default: return '📎';
+    }
+  };
+
+  const getTypeColor = (documentType) => {
+    switch (documentType?.toLowerCase()) {
+      case 'contract': return 'from-green-500 to-green-600';
+      case 'evidence': return 'from-blue-500 to-blue-600';
+      case 'legal_document': return 'from-purple-500 to-purple-600';
+      case 'brief': return 'from-orange-500 to-orange-600';
+      case 'motion': return 'from-pink-500 to-pink-600';
+      case 'pleading': return 'from-indigo-500 to-indigo-600';
+      default: return 'from-gray-500 to-gray-600';
     }
   };
 
@@ -111,23 +146,24 @@ export default function LawyerDocuments() {
     });
   };
 
-  // Group documents by case
-  const documentsByCase = documents.reduce((acc, doc) => {
-    const caseTitle = doc.case_title || `Case #${doc.case_id}`;
-    if (!acc[caseTitle]) {
-      acc[caseTitle] = [];
-    }
-    acc[caseTitle].push(doc);
-    return acc;
-  }, {});
+  const getFileSize = (sizeInBytes) => {
+    if (!sizeInBytes) return 'Unknown';
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(sizeInBytes) / Math.log(1024));
+    return Math.round(sizeInBytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  };
 
   if (loading) {
     return (
-      <div className="p-6">
-        <h1 className="text-3xl font-extrabold text-blue-900 mb-6">Documents</h1>
-        <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="text-gray-600 mt-4">Loading documents...</p>
+      <div className="p-8">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded-2xl w-48 mb-6"></div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="bg-gray-100 rounded-2xl p-6 h-32"></div>
+            ))}
+          </div>
+          <div className="bg-gray-100 rounded-2xl p-6 h-64"></div>
         </div>
       </div>
     );
@@ -135,15 +171,16 @@ export default function LawyerDocuments() {
 
   if (error) {
     return (
-      <div className="p-6">
-        <h1 className="text-3xl font-extrabold text-blue-900 mb-6">Documents</h1>
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <h3 className="text-xl font-semibold text-red-800 mb-2">Error Loading Documents</h3>
-          <p className="text-red-600 mb-4">{error}</p>
+      <div className="p-8">
+        <div className="bg-white/80 backdrop-blur-lg rounded-3xl border border-red-200/50 shadow-lg p-12 text-center">
+          <div className="w-24 h-24 bg-red-100 rounded-3xl flex items-center justify-center mx-auto mb-6">
+            <span className="text-4xl">⚠️</span>
+          </div>
+          <h3 className="text-2xl font-bold text-red-800 mb-3">Error Loading Documents</h3>
+          <p className="text-red-600 mb-8 max-w-md mx-auto">{error}</p>
           <button
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
             onClick={fetchDocuments}
+            className="px-8 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-2xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
           >
             Try Again
           </button>
@@ -153,126 +190,236 @@ export default function LawyerDocuments() {
   }
 
   return (
-    <div className="p-6">
-      {/* Header */}
+    <div className="p-8">
+      {/* Header Section */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-extrabold text-blue-900 mb-2">Documents</h1>
-          <p className="text-lg text-blue-700">Manage your case documents and files</p>
+        <div className="mb-6 lg:mb-0">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-800 to-blue-600 bg-clip-text text-transparent mb-3">
+            Document Library
+          </h1>
+          <p className="text-lg text-gray-600">
+            Manage and organize all your legal documents
+          </p>
         </div>
+        
         <button 
-          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-200 flex items-center gap-2 mt-4 lg:mt-0 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-2xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 flex items-center space-x-3 disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={handleUpload}
           disabled={uploading}
         >
           {uploading ? (
             <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              Uploading...
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              <span>Uploading...</span>
             </>
           ) : (
             <>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
-              Upload Document
+              <span className="text-xl">📤</span>
+              <span>Upload Document</span>
             </>
           )}
         </button>
       </div>
 
+      {/* Statistics Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-6 border border-gray-200/50 shadow-lg">
+          <div className="text-2xl font-bold text-blue-600 mb-2">{documents.length}</div>
+          <div className="text-sm font-semibold text-gray-700">Total Documents</div>
+          <div className="text-xs text-gray-500">All files</div>
+        </div>
+        
+        <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-6 border border-gray-200/50 shadow-lg">
+          <div className="text-2xl font-bold text-green-600 mb-2">
+            {documents.filter(d => d.document_type === 'contract').length}
+          </div>
+          <div className="text-sm font-semibold text-gray-700">Contracts</div>
+          <div className="text-xs text-gray-500">Legal agreements</div>
+        </div>
+        
+        <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-6 border border-gray-200/50 shadow-lg">
+          <div className="text-2xl font-bold text-purple-600 mb-2">
+            {documents.filter(d => d.document_type === 'evidence').length}
+          </div>
+          <div className="text-sm font-semibold text-gray-700">Evidence Files</div>
+          <div className="text-xs text-gray-500">Case evidence</div>
+        </div>
+        
+        <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-6 border border-gray-200/50 shadow-lg">
+          <div className="text-2xl font-bold text-orange-600 mb-2">
+            {documents.filter(d => d.is_confidential).length}
+          </div>
+          <div className="text-sm font-semibold text-gray-700">Confidential</div>
+          <div className="text-xs text-gray-500">Sensitive documents</div>
+        </div>
+      </div>
+
+      {/* Filters and Search */}
+      <div className="bg-white/80 backdrop-blur-lg rounded-2xl p-6 border border-gray-200/50 shadow-lg mb-8">
+        <div className="flex flex-col lg:flex-row gap-4">
+          {/* Search Input */}
+          <div className="flex-1">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search documents by title, description, or case..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+              />
+              <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Type Filter */}
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+          >
+            <option value="all">All Types</option>
+            {uniqueTypes.map(type => (
+              <option key={type} value={type}>
+                {type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' ')}
+              </option>
+            ))}
+          </select>
+
+          {/* Case Filter */}
+          <select
+            value={filterCase}
+            onChange={(e) => setFilterCase(e.target.value)}
+            className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+          >
+            <option value="all">All Cases</option>
+            {uniqueCases.map(caseTitle => (
+              <option key={caseTitle} value={caseTitle}>{caseTitle}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       {/* Documents List */}
-      {documents.length === 0 ? (
-        <div className="bg-white rounded-xl p-8 border border-blue-200 text-center">
-          <svg className="w-16 h-16 text-blue-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          <h3 className="text-xl font-semibold text-blue-900 mb-2">No Documents Found</h3>
-          <p className="text-blue-700 mb-4">Get started by uploading your first document.</p>
+      {filteredDocuments.length === 0 ? (
+        <div className="bg-white/80 backdrop-blur-lg rounded-3xl border border-gray-200/50 shadow-lg p-12 text-center">
+          <div className="w-24 h-24 bg-gray-100 rounded-3xl flex items-center justify-center mx-auto mb-6">
+            <span className="text-4xl">📁</span>
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-3">
+            {searchTerm || filterType !== 'all' || filterCase !== 'all' ? 'No matching documents found' : 'No documents yet'}
+          </h3>
+          <p className="text-gray-600 mb-8 max-w-md mx-auto">
+            {searchTerm || filterType !== 'all' || filterCase !== 'all' 
+              ? 'Try adjusting your search terms or filters to find what you\'re looking for.'
+              : 'Start building your document library by uploading your first file. Organize case materials and legal documents efficiently.'
+            }
+          </p>
+          <button
+            onClick={handleUpload}
+            className="px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-2xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
+          >
+            Upload Your First Document
+          </button>
         </div>
       ) : (
         <div className="space-y-6">
           {Object.entries(documentsByCase).map(([caseTitle, caseDocs]) => (
-            <div key={caseTitle} className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-              <h3 className="font-bold text-blue-900 text-xl mb-4 flex items-center gap-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                {caseTitle}
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {caseDocs.map(doc => (
-                  <div key={doc.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl">{getFileIcon(doc.document_type)}</span>
-                        <div>
-                          <h4 className="font-semibold text-gray-900 text-sm line-clamp-2">{doc.title}</h4>
-                          <p className="text-gray-500 text-xs capitalize">{doc.document_type?.replace('_', ' ')}</p>
+            <div key={caseTitle} className="bg-white/80 backdrop-blur-lg rounded-3xl border border-gray-200/50 shadow-lg overflow-hidden">
+              {/* Case Header */}
+              <div className="bg-gradient-to-r from-blue-50 to-blue-100 border-b border-blue-200/50 p-6">
+                <h3 className="font-bold text-blue-900 text-xl flex items-center space-x-3">
+                  <span>📂</span>
+                  <span>{caseTitle}</span>
+                  <span className="text-sm font-normal text-blue-600 bg-blue-200 px-3 py-1 rounded-full">
+                    {caseDocs.length} documents
+                  </span>
+                </h3>
+              </div>
+
+              {/* Documents Grid */}
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {caseDocs.map(doc => {
+                    const typeColor = getTypeColor(doc.document_type);
+                    
+                    return (
+                      <div 
+                        key={doc.id}
+                        className="group bg-white rounded-2xl border border-gray-200/70 p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1"
+                      >
+                        {/* Document Header */}
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-12 h-12 rounded-2xl bg-gradient-to-r ${typeColor} flex items-center justify-center text-white text-lg`}>
+                              {getFileIcon(doc.document_type)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-gray-900 text-sm line-clamp-2 group-hover:text-blue-700 transition-colors">
+                                {doc.title}
+                              </h4>
+                              <span className="inline-block mt-1 px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full capitalize">
+                                {doc.document_type?.replace('_', ' ')}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Document Details */}
+                        <div className="space-y-2 text-sm text-gray-600 mb-4">
+                          {doc.description && (
+                            <div className="line-clamp-2 text-xs">{doc.description}</div>
+                          )}
+                          <div className="flex items-center space-x-1 text-xs">
+                            <span>📅</span>
+                            <span>{formatDate(doc.created_at)}</span>
+                          </div>
+                          {doc.file_size && (
+                            <div className="flex items-center space-x-1 text-xs">
+                              <span>💾</span>
+                              <span>{getFileSize(doc.file_size)}</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Action Buttons */}
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleDownload(doc)}
+                            className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2 px-3 rounded-xl text-sm font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center space-x-1"
+                          >
+                            <span>⬇️</span>
+                            <span>Download</span>
+                          </button>
+                          {doc.is_confidential && (
+                            <span className="px-3 py-2 bg-red-100 text-red-800 text-xs font-semibold rounded-xl flex items-center space-x-1">
+                              <span>🔒</span>
+                              <span>Confidential</span>
+                            </span>
+                          )}
                         </div>
                       </div>
-                    </div>
-                    
-                    <div className="space-y-1 text-xs text-gray-600 mb-3">
-                      {doc.description && (
-                        <div className="line-clamp-2">{doc.description}</div>
-                      )}
-                      <div>Uploaded: {formatDate(doc.created_at)}</div>
-                      {doc.uploaded_by && (
-                        <div>By: {doc.uploaded_by}</div>
-                      )}
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <button
-                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-3 rounded text-sm transition-colors flex items-center justify-center gap-1"
-                        onClick={() => handleDownload(doc)}
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                        </svg>
-                        Download
-                      </button>
-                      {doc.is_confidential && (
-                        <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded flex items-center">
-                          🔒 Confidential
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })}
+                </div>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Statistics */}
-      {documents.length > 0 && (
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-blue-900">{documents.length}</div>
-            <div className="text-blue-700 text-sm">Total Documents</div>
-          </div>
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-green-900">
-              {documents.filter(d => d.document_type === 'contract').length}
-            </div>
-            <div className="text-green-700 text-sm">Contracts</div>
-          </div>
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-purple-900">
-              {documents.filter(d => d.document_type === 'evidence').length}
-            </div>
-            <div className="text-purple-700 text-sm">Evidence Files</div>
-          </div>
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-orange-900">
-              {documents.filter(d => d.is_confidential).length}
-            </div>
-            <div className="text-orange-700 text-sm">Confidential</div>
-          </div>
+      {/* Results Count */}
+      {filteredDocuments.length > 0 && (
+        <div className="mt-8 text-center">
+          <p className="text-gray-600">
+            Showing {filteredDocuments.length} of {documents.length} documents
+            {searchTerm && ` for "${searchTerm}"`}
+            {filterType !== 'all' && ` in ${filterType}`}
+            {filterCase !== 'all' && ` for ${filterCase}`}
+          </p>
         </div>
       )}
     </div>
